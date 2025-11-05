@@ -1,0 +1,106 @@
+"""
+BLESSED GYM - Sistema de Gestión Integral
+Archivo principal refactorizado
+
+Este archivo coordina la navegación entre las diferentes vistas
+y gestiona el estado de la aplicación usando servicios.
+"""
+
+import flet as ft
+from config.settings import (
+    APP_TITLE, APP_WIDTH, APP_HEIGHT, BACKGROUND_DARK
+)
+from services.auth_service import AuthService
+from ui.views.role_selection import show_role_selection
+from ui.views.admin_login import show_admin_login
+from ui.views.client_login import show_client_login
+from ui.views.admin_dashboard import show_admin_dashboard
+from ui.views.client_dashboard import show_client_dashboard
+from ui.views.simple_message import show_simple_message
+
+
+def main(page: ft.Page):
+    """
+    Función principal de la aplicación
+    Configura la página y maneja la navegación entre vistas
+    """
+    # Configuración de la página
+    page.title = APP_TITLE
+    page.window.width = APP_WIDTH
+    page.window.height = APP_HEIGHT
+    page.window.resizable = True
+    page.theme_mode = ft.ThemeMode.LIGHT
+    page.bgcolor = BACKGROUND_DARK
+    page.padding = 0
+
+    # Inicializar servicio de autenticación
+    auth_service = AuthService()
+
+    # --- FUNCIONES DE NAVEGACIÓN ---
+
+    def navigate_to_role_selection(e=None):
+        """Navegar a la pantalla de selección de rol"""
+        auth_service.logout()
+        show_role_selection(
+            page,
+            on_admin_click=navigate_to_admin_login,
+            on_client_click=navigate_to_client_login
+        )
+
+    def navigate_to_admin_login():
+        """Navegar al login de administrador"""
+        show_admin_login(
+            page,
+            auth_service,
+            on_success=navigate_to_admin_dashboard,
+            on_back=navigate_to_role_selection
+        )
+
+    def navigate_to_client_login():
+        """Navegar al login de cliente"""
+        show_client_login(
+            page,
+            auth_service,
+            on_success=navigate_to_client_dashboard,
+            on_back=navigate_to_role_selection
+        )
+
+    def navigate_to_admin_dashboard():
+        """Navegar al dashboard de administrador"""
+        show_admin_dashboard(
+            page,
+            auth_service,
+            on_logout=navigate_to_role_selection,
+            on_section_click=navigate_to_section
+        )
+
+    def navigate_to_client_dashboard():
+        """Navegar al dashboard de cliente"""
+        show_client_dashboard(
+            page,
+            auth_service,
+            on_logout=navigate_to_role_selection,
+            on_section_click=navigate_to_section
+        )
+
+    def navigate_to_section(section_name: str):
+        """
+        Navegar a una sección específica
+
+        Args:
+            section_name: Nombre de la sección a mostrar
+        """
+        def go_back():
+            if auth_service.get_current_role() == 'admin':
+                navigate_to_admin_dashboard()
+            else:
+                navigate_to_client_dashboard()
+
+        show_simple_message(page, section_name, on_back=go_back)
+
+    # --- INICIAR APLICACIÓN ---
+    navigate_to_role_selection()
+
+
+if __name__ == "__main__":
+    ft.app(target=main)
