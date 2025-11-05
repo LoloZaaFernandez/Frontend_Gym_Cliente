@@ -12,8 +12,8 @@ TEXT_PRIMARY = "#FFFFFF"       # Texto principal blanco
 TEXT_SECONDARY = "#CCCCCC"     # Texto secundario gris claro
 
 # --- RUTAS DE ARCHIVOS ---
-LOGO_PATH = r"C:\Sistemas\Flet\img\logo.png"
-BG_PATH = r"C:\Sistemas\Flet\img\gym.jpg"
+LOGO_PATH = r"C:\Sistema_Blessed\Frontend_Gym_Cliente\frontend\logo.png"
+BG_PATH = r"C:\Sistema_Blessed\Frontend_Gym_Cliente\frontend\gym.jpg"
 
 # --- CONFIGURACIÓN DE LA APLICACIÓN ---
 APP_TITLE = "BLESSED GYM"
