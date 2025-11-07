@@ -1,0 +1,39 @@
+# Entorno virtual
+venv/
+.env
+.venv/
+env/
+ENV/
+
+# Archivos de base de datos (SQLite)
+
+*.sqlite3
+
+# Archivos de compilación de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos temporales del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de logs
+*.log
+
+# Archivos de configuración locales
+*.env
+config_local.py
+
+# Carpetas de caché o builds
+build/
+dist/
+*.egg-info/
+
+# VSCode / PyCharm
+.vscode/
+.idea/
+
+# Archivos generados por Uvicorn
+*.pid
+

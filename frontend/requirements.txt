@@ -1,0 +1,10 @@
+# BLESSED GYM - Frontend Requirements
+
+# UI Framework
+flet==0.24.1
+
+# HTTP Client para conectar con Backend API
+requests==2.31.0
+
+# Utilidades
+python-dateutil==2.8.2
