@@ -1,6 +1,6 @@
 """
 BLESSED GYM - Sistema de Gestión Integral
-Archivo principal refactorizado
+Archivo principal CORREGIDO
 
 Este archivo coordina la navegación entre las diferentes vistas
 y gestiona el estado de la aplicación usando servicios.
@@ -121,10 +121,16 @@ def main(page: ft.Page):
             else:
                 show_simple_message(page, section_name, on_back=go_back)
 
-        # Mapeo de secciones a vistas para Cliente
+        # ✅ CORREGIDO: Mapeo de secciones para Cliente con callback de navegación
         else:
             if section_name == "Mi Perfil":
-                show_perfil_cliente_view(page, auth_service, go_back)
+                # ✅ Pasar callback para navegar a membresías
+                show_perfil_cliente_view(
+                    page, 
+                    auth_service, 
+                    on_back=go_back,
+                    on_navigate_membresias=lambda: navigate_to_section("Membresías")  # ✅ NUEVO
+                )
             elif section_name == "Membresías":
                 show_membresias_view(page, auth_service, go_back)
             elif section_name == "Asistencias":

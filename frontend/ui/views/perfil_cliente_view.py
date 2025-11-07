@@ -1,5 +1,6 @@
 """
-Vista de Perfil de Cliente Mejorada
+Vista de Perfil de Cliente - CORREGIDA
+Incluye redirección correcta del botón "Renovar Membresía"
 """
 
 import flet as ft
@@ -7,14 +8,15 @@ from datetime import datetime
 from config.settings import PRIMARY_COLOR, TEXT_SECONDARY, CARD_BG, TEXT_PRIMARY, BACKGROUND_DARK
 
 
-def show_perfil_cliente_view(page: ft.Page, auth_service, on_back):
+def show_perfil_cliente_view(page: ft.Page, auth_service, on_back, on_navigate_membresias=None):
     """
-    Mostrar vista de perfil del cliente
+    Mostrar vista de perfil del cliente - CORREGIDA
 
     Args:
         page: Página de Flet
         auth_service: Servicio de autenticación
         on_back: Callback para volver atrás
+        on_navigate_membresias: ✅ NUEVO - Callback para ir a membresías
     """
     page.clean()
     page.title = "BLESSED GYM - Mi Perfil"
@@ -32,7 +34,6 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_back):
         "membresia_estado": "Activa"
     }
 
-    # Funciones auxiliares (deben estar antes de su uso)
     def crear_campo_info(label, valor, icon):
         """Crear campo de información"""
         return ft.Container(
@@ -52,18 +53,8 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_back):
         return ft.Container(
             content=ft.Column([
                 ft.Icon(icon, size=40, color=color),
-                ft.Text(
-                    valor,
-                    size=24,
-                    weight=ft.FontWeight.BOLD,
-                    color=color
-                ),
-                ft.Text(
-                    titulo,
-                    size=12,
-                    color=TEXT_SECONDARY,
-                    text_align=ft.TextAlign.CENTER
-                ),
+                ft.Text(valor, size=24, weight=ft.FontWeight.BOLD, color=color),
+                ft.Text(titulo, size=12, color=TEXT_SECONDARY, text_align=ft.TextAlign.CENTER),
             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
             bgcolor=f"{color}11",
             border_radius=12,
@@ -75,27 +66,23 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_back):
 
     def mostrar_mensaje(mensaje):
         """Mostrar mensaje temporal"""
-        page.snack_bar = ft.SnackBar(
-            content=ft.Text(mensaje),
-            bgcolor=PRIMARY_COLOR
-        )
+        page.snack_bar = ft.SnackBar(content=ft.Text(mensaje), bgcolor=PRIMARY_COLOR)
         page.snack_bar.open = True
         page.update()
+
+    # ✅ FUNCIÓN CORREGIDA: Redirigir a membresías
+    def ir_a_membresias(e):
+        """Navegar a la vista de membresías"""
+        if on_navigate_membresias:
+            on_navigate_membresias()  
+        else:
+            mostrar_mensaje("⚠ Función de navegación no disponible")
 
     # Header
     header = ft.Container(
         content=ft.Row([
-            ft.IconButton(
-                icon=ft.Icons.ARROW_BACK,
-                icon_color=PRIMARY_COLOR,
-                on_click=lambda _: on_back()
-            ),
-            ft.Text(
-                "Mi Perfil - BLESSED GYM",
-                size=24,
-                weight=ft.FontWeight.BOLD,
-                color=PRIMARY_COLOR
-            ),
+            ft.IconButton(icon=ft.Icons.ARROW_BACK, icon_color=PRIMARY_COLOR, on_click=lambda _: on_back()),
+            ft.Text("Mi Perfil - BLESSED GYM", size=24, weight=ft.FontWeight.BOLD, color=PRIMARY_COLOR),
         ]),
         padding=20,
         bgcolor=CARD_BG,
@@ -123,12 +110,7 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_back):
                 text_align=ft.TextAlign.CENTER
             ),
             ft.Container(
-                content=ft.Text(
-                    "MIEMBRO ACTIVO",
-                    size=12,
-                    color=TEXT_PRIMARY,
-                    weight=ft.FontWeight.BOLD
-                ),
+                content=ft.Text("MIEMBRO ACTIVO", size=12, color=TEXT_PRIMARY, weight=ft.FontWeight.BOLD),
                 bgcolor=PRIMARY_COLOR,
                 padding=ft.padding.symmetric(horizontal=15, vertical=5),
                 border_radius=12
@@ -144,12 +126,7 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_back):
     # Información personal
     info_personal = ft.Container(
         content=ft.Column([
-            ft.Text(
-                "Información Personal",
-                size=18,
-                weight=ft.FontWeight.BOLD,
-                color=PRIMARY_COLOR
-            ),
+            ft.Text("Información Personal", size=18, weight=ft.FontWeight.BOLD, color=PRIMARY_COLOR),
             ft.Divider(height=1, color="#333333"),
             crear_campo_info("DNI", cliente['dni'], ft.Icons.BADGE),
             crear_campo_info("Correo Electrónico", cliente['correo'], ft.Icons.EMAIL),
@@ -168,26 +145,11 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_back):
     # Estadísticas de actividad
     stats_actividad = ft.Container(
         content=ft.Column([
-            ft.Text(
-                "Mi Actividad",
-                size=18,
-                weight=ft.FontWeight.BOLD,
-                color=PRIMARY_COLOR
-            ),
+            ft.Text("Mi Actividad", size=18, weight=ft.FontWeight.BOLD, color=PRIMARY_COLOR),
             ft.Divider(height=1, color="#333333"),
             ft.Row([
-                crear_stat_card(
-                    "Total Asistencias",
-                    str(datos_adicionales['total_asistencias']),
-                    ft.Icons.FITNESS_CENTER,
-                    PRIMARY_COLOR
-                ),
-                crear_stat_card(
-                    "Racha Actual",
-                    f"{datos_adicionales['racha_dias']} días",
-                    ft.Icons.LOCAL_FIRE_DEPARTMENT,
-                    "#FF6F00"
-                ),
+                crear_stat_card("Total Asistencias", str(datos_adicionales['total_asistencias']), ft.Icons.FITNESS_CENTER, PRIMARY_COLOR),
+                crear_stat_card("Racha Actual", f"{datos_adicionales['racha_dias']} días", ft.Icons.LOCAL_FIRE_DEPARTMENT, "#FF6F00"),
             ], spacing=15, wrap=True),
         ], spacing=15),
         padding=20,
@@ -203,12 +165,7 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_back):
 
     info_membresia = ft.Container(
         content=ft.Column([
-            ft.Text(
-                "Mi Membresía",
-                size=18,
-                weight=ft.FontWeight.BOLD,
-                color=PRIMARY_COLOR
-            ),
+            ft.Text("Mi Membresía", size=18, weight=ft.FontWeight.BOLD, color=PRIMARY_COLOR),
             ft.Divider(height=1, color="#333333"),
             ft.Container(
                 content=ft.Row([
@@ -220,18 +177,9 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_back):
                             weight=ft.FontWeight.BOLD,
                             color=TEXT_PRIMARY
                         ),
-                        ft.Text(
-                            f"Vence: {datos_adicionales['membresia_vencimiento']}",
-                            size=14,
-                            color=TEXT_SECONDARY
-                        ),
+                        ft.Text(f"Vence: {datos_adicionales['membresia_vencimiento']}", size=14, color=TEXT_SECONDARY),
                         ft.Container(
-                            content=ft.Text(
-                                datos_adicionales['membresia_estado'],
-                                size=12,
-                                color=TEXT_PRIMARY,
-                                weight=ft.FontWeight.BOLD
-                            ),
+                            content=ft.Text(datos_adicionales['membresia_estado'], size=12, color=TEXT_PRIMARY, weight=ft.FontWeight.BOLD),
                             bgcolor=estado_color,
                             padding=ft.padding.symmetric(horizontal=12, vertical=4),
                             border_radius=6,
@@ -245,6 +193,7 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_back):
                 border=ft.border.all(1, PRIMARY_COLOR)
             ),
             ft.Container(height=10),
+            # ✅ BOTÓN CORREGIDO: Ahora redirige correctamente
             ft.ElevatedButton(
                 "Renovar Membresía",
                 icon=ft.Icons.AUTORENEW,
@@ -252,7 +201,7 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_back):
                 color=ft.Colors.BLACK,
                 width=300,
                 height=45,
-                on_click=lambda _: mostrar_mensaje("Función de renovación en desarrollo")
+                on_click=ir_a_membresias  # ✅ Usar la función de redirección
             ),
         ], spacing=15, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
         padding=20,
@@ -263,31 +212,11 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_back):
     )
 
     # Layout con dos columnas
-    left_column = ft.Column([
-        profile_header,
-        info_membresia,
-    ], spacing=0, expand=True)
-
-    right_column = ft.Column([
-        info_personal,
-        stats_actividad,
-    ], spacing=0, expand=True)
-
-    content_row = ft.Row([
-        left_column,
-        right_column
-    ], spacing=0, expand=True)
+    left_column = ft.Column([profile_header, info_membresia], spacing=0, expand=True)
+    right_column = ft.Column([info_personal, stats_actividad], spacing=0, expand=True)
+    content_row = ft.Row([left_column, right_column], spacing=0, expand=True)
 
     # Layout principal
-    main_content = ft.Column([
-        header,
-        content_row
-    ], spacing=0, expand=True)
+    main_content = ft.Column([header, content_row], spacing=0, expand=True)
 
-    page.add(
-        ft.Container(
-            content=main_content,
-            bgcolor=BACKGROUND_DARK,
-            expand=True
-        )
-    )
+    page.add(ft.Container(content=main_content, bgcolor=BACKGROUND_DARK, expand=True))

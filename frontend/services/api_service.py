@@ -191,7 +191,7 @@ class APIService:
         url = f"{self.base_url}/api/membresias"
         params = {}
         if estado:
-            params['estado'] = estado
+            params['estado'] = estado 
 
         try:
             response = self.session.get(url, params=params, timeout=self.timeout)
@@ -316,7 +316,7 @@ class APIService:
             return self._handle_response(response)
         except Exception as e:
             print(f"Error al obtener precio de membresía: {e}")
-            return None
+            return None  # 
 
     def crear_membresia(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Crear nueva membresía"""
