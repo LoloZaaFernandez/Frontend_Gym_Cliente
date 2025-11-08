@@ -26,7 +26,7 @@ class ClienteService:
     def actualizar_cliente(self, cliente_id: int, cliente_data: Dict[str, Any]) -> Dict[str, Any]:
         if not self.repository.find_by_id(cliente_id):
             raise ValueError("Cliente no encontrado")
-
+            
         self.repository.update(cliente_id, cliente_data)
         return self.repository.find_by_id(cliente_id)
 

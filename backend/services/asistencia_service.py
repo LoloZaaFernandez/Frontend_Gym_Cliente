@@ -33,7 +33,7 @@ class AsistenciaService:
         if fecha_venc < datetime.now():
             raise ValueError("Membresía vencida")
 
-        # ✅ VERIFICAR ASISTENCIA DUPLICADA (MEJORA CLAVE)
+        # VERIFICAR ASISTENCIA DUPLICADA (MEJORA CLAVE)
         if self.repository.verificar_asistencia_hoy(cliente_info["id"]):
             raise ValueError("El cliente ya registró asistencia el día de hoy")
 
