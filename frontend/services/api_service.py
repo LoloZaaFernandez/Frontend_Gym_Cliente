@@ -72,6 +72,10 @@ class APIService:
                 return cliente
         return None
 
+    def get_cliente_by_dni(self, dni: str) -> Optional[Dict[str, Any]]:
+        """Alias de get_cliente_por_dni para compatibilidad"""
+        return self.get_cliente_por_dni(dni)
+
     def crear_cliente(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Crear nuevo cliente"""
         url = f"{self.base_url}/api/clientes"
@@ -99,6 +103,19 @@ class APIService:
             return True
         except Exception as e:
             raise ValueError(f"Error al eliminar cliente: {str(e)}")
+
+    # Alias para compatibilidad
+    def create_cliente(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Alias de crear_cliente"""
+        return self.crear_cliente(data)
+
+    def update_cliente(self, cliente_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Alias de actualizar_cliente"""
+        return self.actualizar_cliente(cliente_id, data)
+
+    def delete_cliente(self, cliente_id: int) -> bool:
+        """Alias de eliminar_cliente"""
+        return self.eliminar_cliente(cliente_id)
 
     # ==================== ASISTENCIAS ====================
 
@@ -137,6 +154,14 @@ class APIService:
         from datetime import datetime
         fecha_hoy = datetime.now().strftime("%Y-%m-%d")
         return self.get_asistencias(fecha_inicio=fecha_hoy, fecha_fin=fecha_hoy)
+
+    def get_asistencias_mes(self) -> List[Dict[str, Any]]:
+        """Obtener asistencias del mes actual"""
+        from datetime import datetime
+        hoy = datetime.now()
+        fecha_inicio = hoy.replace(day=1).strftime("%Y-%m-%d")
+        fecha_fin = hoy.strftime("%Y-%m-%d")
+        return self.get_asistencias(fecha_inicio=fecha_inicio, fecha_fin=fecha_fin)
 
     def get_asistencias_cliente(self, cliente_id: int) -> List[Dict[str, Any]]:
         """Obtener asistencias de un cliente específico"""

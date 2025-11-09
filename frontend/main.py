@@ -11,22 +11,28 @@ from config.settings import (
     APP_TITLE, APP_WIDTH, APP_HEIGHT, BACKGROUND_DARK
 )
 from services.auth_service import AuthService
-from ui.views.role_selection import show_role_selection
-from ui.views.admin_login import show_admin_login
-from ui.views.client_login import show_client_login
-from ui.views.admin_dashboard import show_admin_dashboard
-from ui.views.client_dashboard import show_client_dashboard
-from ui.views.simple_message import show_simple_message
 
-# Importar nuevas vistas
-from ui.views.clientes_view import show_clientes_view
-from ui.views.asistencia_view import show_asistencia_view
-from ui.views.pos_view import show_pos_view
-from ui.views.reportes_view import show_reportes_view
-from ui.views.perfil_cliente_view import show_perfil_cliente_view
-from ui.views.membresias_view import show_membresias_view
-from ui.views.cliente_asistencias_view import show_cliente_asistencias_view
-from ui.views.admin_membresias_view import show_admin_membresias_view
+# Vistas de autenticación
+from ui.views.auth.role_selection import show_role_selection
+from ui.views.auth.admin_login import show_admin_login
+from ui.views.auth.client_login import show_client_login
+
+# Vistas de administrador
+from ui.views.admin.admin_dashboard import show_admin_dashboard
+from ui.views.admin.clientes_view import show_clientes_view
+from ui.views.admin.asistencia_view import show_asistencia_view
+from ui.views.admin.admin_membresias_view import show_admin_membresias_view
+from ui.views.admin.pos_view import show_pos_view
+from ui.views.admin.reportes_view import show_reportes_view
+
+# Vistas de cliente
+from ui.views.client.client_dashboard import show_client_dashboard
+from ui.views.client.perfil_cliente_view import show_perfil_cliente_view
+from ui.views.client.membresias_view import show_membresias_view
+from ui.views.client.cliente_asistencias_view import show_cliente_asistencias_view
+
+# Otras vistas
+from ui.views.simple_message import show_simple_message
 
 
 def main(page: ft.Page):
@@ -108,33 +114,37 @@ def main(page: ft.Page):
 
         # Mapeo de secciones a vistas para Admin
         if auth_service.get_current_role() == 'admin':
-            if section_name == "Clientes":
-                show_clientes_view(page, auth_service, go_back)
+            if section_name == "Dashboard":
+                navigate_to_admin_dashboard()
+            elif section_name == "Clientes":
+                show_clientes_view(page, auth_service, navigate_to_section, section_name)
             elif section_name == "Membresias":
-                show_admin_membresias_view(page, auth_service, go_back)
+                show_admin_membresias_view(page, auth_service, navigate_to_section, section_name)
             elif section_name == "Asistencia":
-                show_asistencia_view(page, auth_service, go_back)
+                show_asistencia_view(page, auth_service, navigate_to_section, section_name)
             elif section_name == "POS":
-                show_pos_view(page, auth_service, go_back)
+                show_pos_view(page, auth_service, navigate_to_section, section_name)
             elif section_name == "Reportes":
-                show_reportes_view(page, auth_service, go_back)
+                show_reportes_view(page, auth_service, navigate_to_section, section_name)
             else:
                 show_simple_message(page, section_name, on_back=go_back)
 
-        # ✅ CORREGIDO: Mapeo de secciones para Cliente con callback de navegación
+        # Mapeo de secciones para Cliente
         else:
-            if section_name == "Mi Perfil":
-                # ✅ Pasar callback para navegar a membresías
+            if section_name == "Dashboard":
+                navigate_to_client_dashboard()
+            elif section_name == "Mi Perfil":
                 show_perfil_cliente_view(
-                    page, 
-                    auth_service, 
-                    on_back=go_back,
-                    on_navigate_membresias=lambda: navigate_to_section("Membresías")  # ✅ NUEVO
+                    page,
+                    auth_service,
+                    navigate_to_section,
+                    section_name,
+                    on_navigate_membresias=lambda: navigate_to_section("Membresías")
                 )
             elif section_name == "Membresías":
-                show_membresias_view(page, auth_service, go_back)
+                show_membresias_view(page, auth_service, navigate_to_section, section_name)
             elif section_name == "Asistencias":
-                show_cliente_asistencias_view(page, auth_service, go_back)
+                show_cliente_asistencias_view(page, auth_service, navigate_to_section, section_name)
             else:
                 show_simple_message(page, section_name, on_back=go_back)
 
