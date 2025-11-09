@@ -184,23 +184,16 @@ def _create_sidebar(role: str, current_section: str, on_section_click):
     logo_content = ft.Container(
         content=ft.Column([
             ft.Container(
-                content=ft.Icon(
-                    ft.Icons.FITNESS_CENTER,
-                    size=Theme.ICON_SIZE["xl"],
-                    color=Theme.PRIMARY
+                content=ft.Image(
+                    src=LOGO_PATH,
+                    width=100,
+                    height=100,
+                    fit=ft.ImageFit.CONTAIN,
                 ),
-                bgcolor=f"{Theme.PRIMARY}20",
-                border_radius=Theme.RADIUS["lg"],
-                padding=Theme.SPACING["md"],
+     
                 alignment=ft.alignment.center,
             ),
-            ft.Text(
-                "BLESSED GYM",
-                size=Theme.FONT_SIZE["xl"],
-                weight=Theme.FONT_WEIGHT["bold"],
-                color=Theme.TEXT_PRIMARY,
-                text_align=ft.TextAlign.CENTER
-            ),
+
             ft.Container(
                 content=ft.Text(
                     "Sistema de Gestión",
