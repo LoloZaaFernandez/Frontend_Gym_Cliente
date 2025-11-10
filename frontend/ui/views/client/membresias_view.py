@@ -211,9 +211,7 @@ def show_membresias_view(page: ft.Page, auth_service, on_section_click, current_
             label="Método de Pago",
             options=[
                 ft.dropdown.Option("Efectivo"),
-                ft.dropdown.Option("Transferencia"),
                 ft.dropdown.Option("Yape"),
-                ft.dropdown.Option("Plin"),
             ],
             value="Efectivo",
             width=300

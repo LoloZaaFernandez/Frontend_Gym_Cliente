@@ -126,7 +126,6 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
         options=[
             ft.dropdown.Option("Activo"),
             ft.dropdown.Option("Inactivo"),
-            ft.dropdown.Option("Congelado"),
         ],
         value="Activo",
         color=Theme.TEXT_PRIMARY,
@@ -174,7 +173,6 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
         estado_map = {
             "Activo": ("success", ft.Icons.CHECK_CIRCLE),
             "Inactivo": ("error", ft.Icons.CANCEL),
-            "Congelado": ("warning", ft.Icons.AC_UNIT)
         }
         status, icon = estado_map.get(estado, ("success", ft.Icons.CHECK_CIRCLE))
 
@@ -239,8 +237,7 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
                         items=[
                             ft.PopupMenuItem(text="Activar", icon=ft.Icons.CHECK_CIRCLE,
                                            on_click=lambda _, c=cliente: cambiar_estado(c, "Activo")),
-                            ft.PopupMenuItem(text="Congelar", icon=ft.Icons.AC_UNIT,
-                                           on_click=lambda _, c=cliente: cambiar_estado(c, "Congelado")),
+                        
                             ft.PopupMenuItem(text="Desactivar", icon=ft.Icons.CANCEL,
                                            on_click=lambda _, c=cliente: cambiar_estado(c, "Inactivo")),
                             ft.PopupMenuItem(),
