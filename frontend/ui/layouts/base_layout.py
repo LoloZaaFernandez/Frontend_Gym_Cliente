@@ -14,9 +14,9 @@ Estructura:
 └─────────┴──────────────────────┘
 """
 import flet as ft
-from datetime import datetime
 from config.theme import Theme
 from config.settings import LOGO_PATH
+from ..utils.datetime_utils import format_header_time, format_header_date
 
 
 def create_base_layout(
@@ -345,20 +345,20 @@ def _create_header(user_info: dict, current_section: str, on_logout, show_back=F
         )
     )
 
-    # Información de fecha y hora
+    # Información de fecha y hora (sincronizada con zona horaria de Perú)
     header_controls.append(
         ft.Container(
             content=ft.Row([
                 ft.Icon(ft.Icons.ACCESS_TIME, size=Theme.ICON_SIZE["sm"], color=Theme.PRIMARY),
                 ft.Column([
                     ft.Text(
-                        datetime.now().strftime("%H:%M"),
+                        format_header_time(),
                         size=Theme.FONT_SIZE["md"],
                         weight=Theme.FONT_WEIGHT["bold"],
                         color=Theme.PRIMARY
                     ),
                     ft.Text(
-                        datetime.now().strftime("%d/%m/%Y"),
+                        format_header_date(),
                         size=Theme.FONT_SIZE["xs"],
                         color=Theme.TEXT_SECONDARY
                     ),

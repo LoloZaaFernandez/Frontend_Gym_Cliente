@@ -106,7 +106,8 @@ class MembershipCard:
         on_buy_click=None,
         on_edit_click=None,
         on_price_click=None,
-        on_status_click=None
+        on_status_click=None,
+        is_disabled: bool = False  # Nuevo parámetro para deshabilitar tarjeta
     ) -> ft.Container:
         """
         Crear tarjeta de membresía
@@ -329,29 +330,56 @@ class MembershipCard:
         # 🎯 BOTONES DE ACCIÓN - COMPACTOS Y SIEMPRE VISIBLES
         if mode == "client":
             # Botón de compra para cliente
-            card_content.append(
-                ft.Container(
-                    content=ft.ElevatedButton(
-                        content=ft.Row([
-                            ft.Icon(ft.Icons.SHOPPING_CART_ROUNDED, size=18, color="#FFFFFF"),
-                            ft.Text("COMPRAR AHORA", size=13, weight=ft.FontWeight.BOLD,
-                                   color="#FFFFFF")
-                        ], alignment=ft.MainAxisAlignment.CENTER, spacing=8),
-                        style=ft.ButtonStyle(
-                            bgcolor=info['color'],
-                            padding=ft.padding.symmetric(horizontal=30, vertical=15),
-                            shape=ft.RoundedRectangleBorder(radius=10),
-                            elevation=5,
-                            shadow_color=f"{info['color']}70"
+            if is_disabled:
+                # Mostrar mensaje de "Ya tienes membresía activa"
+                card_content.append(
+                    ft.Container(
+                        content=ft.Container(
+                            content=ft.Column([
+                                ft.Icon(ft.Icons.LOCK_ROUNDED, size=24, color="#757575"),
+                                ft.Text(
+                                    "YA TIENES MEMBRESÍA ACTIVA",
+                                    size=11,
+                                    weight=ft.FontWeight.BOLD,
+                                    color="#757575",
+                                    text_align=ft.TextAlign.CENTER
+                                ),
+                            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
+                            bgcolor="#75757520",
+                            padding=ft.padding.symmetric(horizontal=20, vertical=15),
+                            border_radius=10,
+                            border=ft.border.all(2, "#75757540"),
+                            width=280
                         ),
-                        on_click=on_buy_click,
-                        height=48,
-                        width=280
-                    ),
-                    alignment=ft.alignment.center,
-                    padding=ft.padding.only(bottom=20, top=10, left=20, right=20)
+                        alignment=ft.alignment.center,
+                        padding=ft.padding.only(bottom=20, top=10, left=20, right=20)
+                    )
                 )
-            )
+            else:
+                # Botón normal de compra
+                card_content.append(
+                    ft.Container(
+                        content=ft.ElevatedButton(
+                            content=ft.Row([
+                                ft.Icon(ft.Icons.SHOPPING_CART_ROUNDED, size=18, color="#FFFFFF"),
+                                ft.Text("COMPRAR AHORA", size=13, weight=ft.FontWeight.BOLD,
+                                       color="#FFFFFF")
+                            ], alignment=ft.MainAxisAlignment.CENTER, spacing=8),
+                            style=ft.ButtonStyle(
+                                bgcolor=info['color'],
+                                padding=ft.padding.symmetric(horizontal=30, vertical=15),
+                                shape=ft.RoundedRectangleBorder(radius=10),
+                                elevation=5,
+                                shadow_color=f"{info['color']}70"
+                            ),
+                            on_click=on_buy_click,
+                            height=48,
+                            width=280
+                        ),
+                        alignment=ft.alignment.center,
+                        padding=ft.padding.only(bottom=20, top=10, left=20, right=20)
+                    )
+                )
         else:
             # Botones de administración - Compactos y visibles
             card_content.append(
@@ -401,25 +429,32 @@ class MembershipCard:
             )
 
         # Crear contenedor de tarjeta con dimensiones balanceadas
+        # Si está deshabilitada, aplicar opacidad visual
+        card_opacity = 0.5 if is_disabled else 1.0
+
         card = ft.Container(
             width=320,  # Tamaño óptimo
             # Sin altura fija para que se ajuste al contenido y los botones se vean completos
             bgcolor=CARD_BG,
             border_radius=16,  # Balance entre suave y definido
             padding=0,
-            border=ft.border.all(2, "#2A2A2A"),  # Border sutil
+            border=ft.border.all(2, "#757575" if is_disabled else "#2A2A2A"),  # Border gris si está deshabilitado
             shadow=ft.BoxShadow(
                 spread_radius=0,
                 blur_radius=20,
-                color=f"{info['color']}30",
+                color="#75757530" if is_disabled else f"{info['color']}30",
                 offset=ft.Offset(0, 8)
             ),
             animate=200,
+            opacity=card_opacity,
             content=ft.Column(card_content, spacing=0, tight=True)
         )
 
-        # 🎭 EFECTO HOVER - SUTIL Y PROFESIONAL
+        # 🎭 EFECTO HOVER - SUTIL Y PROFESIONAL (solo si no está deshabilitado)
         def on_hover(e):
+            if is_disabled:
+                return  # No aplicar hover si está deshabilitado
+
             if e.data == "true":
                 card.scale = ft.Scale(1.02)  # Sutil
                 card.shadow = ft.BoxShadow(
@@ -456,6 +491,7 @@ class MembershipStatusCard:
     def create_active(
         fecha_vencimiento: datetime,
         dias_restantes: int,
+        nombre_plan: str = "Sin plan",
         on_renew_click=None
     ) -> ft.Container:
         """Crear tarjeta de membresía activa"""
@@ -525,6 +561,26 @@ class MembershipStatusCard:
                 ft.Container(
                     content=ft.Column([
                         # Fecha de vencimiento
+                        # Nombre del plan
+                        ft.Container(
+                            content=ft.Row([
+                                ft.Icon(ft.Icons.CARD_MEMBERSHIP, size=22, color=estado_color),
+                                ft.Column([
+                                    ft.Text("PLAN ACTUAL", size=10, color=TEXT_SECONDARY),
+                                    ft.Text(
+                                        nombre_plan,
+                                        size=16,
+                                        color=TEXT_PRIMARY,
+                                        weight=ft.FontWeight.BOLD
+                                    )
+                                ], spacing=2, expand=True)
+                            ], spacing=12),
+                            bgcolor=f"{BACKGROUND_DARK}60",
+                            padding=15,
+                            border_radius=10
+                        ),
+
+                        # Fecha de vencimiento
                         ft.Container(
                             content=ft.Row([
                                 ft.Icon(ft.Icons.CALENDAR_MONTH, size=22, color=estado_color),
@@ -577,12 +633,173 @@ class MembershipStatusCard:
                     padding=20
                 ),
 
-                # Botón de renovar
+                # Mensaje informativo (no se puede renovar mientras esté activa)
+                ft.Container(
+                    content=ft.Container(
+                        content=ft.Column([
+                            ft.Icon(ft.Icons.INFO_OUTLINE, size=20, color="#757575"),
+                            ft.Text(
+                                "Podrás renovar cuando expire tu membresía",
+                                size=11,
+                                weight=ft.FontWeight.W_500,
+                                color="#757575",
+                                text_align=ft.TextAlign.CENTER
+                            ),
+                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=6),
+                        bgcolor="#75757515",
+                        padding=ft.padding.symmetric(horizontal=20, vertical=12),
+                        border_radius=10,
+                        border=ft.border.all(1, "#75757530"),
+                        width=340
+                    ),
+                    padding=ft.padding.only(bottom=20, left=20, right=20, top=5)
+                )
+            ], spacing=0)
+        )
+
+    @staticmethod
+    def create_expired(
+        fecha_vencimiento: datetime,
+        nombre_plan: str = "Sin plan",
+        on_renew_click=None
+    ) -> ft.Container:
+        """Crear tarjeta de membresía vencida con opción de renovar"""
+
+        estado_color = "#EF5350"  # Rojo para vencida
+
+        return ft.Container(
+            width=380,
+            bgcolor=CARD_BG,
+            border_radius=16,
+            padding=0,
+            border=ft.border.all(2, estado_color),
+            shadow=ft.BoxShadow(
+                spread_radius=2,
+                blur_radius=25,
+                color=f"{estado_color}40",
+                offset=ft.Offset(0, 8)
+            ),
+            content=ft.Column([
+                # Header premium
+                ft.Container(
+                    content=ft.Stack([
+                        # Fondo
+                        ft.Container(
+                            bgcolor=estado_color,
+                            border_radius=ft.border_radius.only(top_left=16, top_right=16),
+                            height=120,
+                        ),
+                        # Contenido
+                        ft.Column([
+                            ft.Row([
+                                ft.Icon(ft.Icons.CANCEL_ROUNDED, size=32, color="#FFFFFF"),
+                                ft.Text(
+                                    "MEMBRESÍA VENCIDA",
+                                    size=20,
+                                    weight=ft.FontWeight.W_900,
+                                    color="#FFFFFF"
+                                )
+                            ], alignment=ft.MainAxisAlignment.CENTER, spacing=12),
+                            ft.Container(
+                                content=ft.Text(
+                                    "INACTIVA",
+                                    size=13,
+                                    weight=ft.FontWeight.BOLD,
+                                    color="#FFFFFF"
+                                ),
+                                bgcolor=f"{BACKGROUND_DARK}E6",
+                                padding=ft.padding.symmetric(horizontal=20, vertical=8),
+                                border_radius=25,
+                                margin=ft.margin.only(top=12),
+                                shadow=ft.BoxShadow(
+                                    spread_radius=0,
+                                    blur_radius=8,
+                                    color="#00000040",
+                                    offset=ft.Offset(0, 2)
+                                )
+                            )
+                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                           alignment=ft.MainAxisAlignment.CENTER,
+                           spacing=0)
+                    ]),
+                    border_radius=ft.border_radius.only(top_left=16, top_right=16),
+                ),
+
+                # Información detallada
+                ft.Container(
+                    content=ft.Column([
+                        # Nombre del plan
+                        ft.Container(
+                            content=ft.Row([
+                                ft.Icon(ft.Icons.CARD_MEMBERSHIP, size=22, color=estado_color),
+                                ft.Column([
+                                    ft.Text("PLAN ANTERIOR", size=10, color=TEXT_SECONDARY),
+                                    ft.Text(
+                                        nombre_plan,
+                                        size=16,
+                                        color=TEXT_PRIMARY,
+                                        weight=ft.FontWeight.BOLD
+                                    )
+                                ], spacing=2, expand=True)
+                            ], spacing=12),
+                            bgcolor=f"{BACKGROUND_DARK}60",
+                            padding=15,
+                            border_radius=10
+                        ),
+
+                        # Fecha de vencimiento
+                        ft.Container(
+                            content=ft.Row([
+                                ft.Icon(ft.Icons.CALENDAR_MONTH, size=22, color=estado_color),
+                                ft.Column([
+                                    ft.Text("VENCIÓ EL", size=10, color=TEXT_SECONDARY),
+                                    ft.Text(
+                                        fecha_vencimiento.strftime("%d/%m/%Y"),
+                                        size=16,
+                                        color=TEXT_PRIMARY,
+                                        weight=ft.FontWeight.BOLD
+                                    )
+                                ], spacing=2)
+                            ], spacing=12),
+                            bgcolor=f"{BACKGROUND_DARK}60",
+                            padding=15,
+                            border_radius=10
+                        ),
+
+                        # Mensaje
+                        ft.Container(
+                            content=ft.Column([
+                                ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, size=32, color=estado_color),
+                                ft.Text(
+                                    "Tu membresía ha expirado",
+                                    size=14,
+                                    color=TEXT_SECONDARY,
+                                    text_align=ft.TextAlign.CENTER,
+                                    weight=ft.FontWeight.W_500
+                                ),
+                                ft.Text(
+                                    "Renueva ahora para seguir disfrutando",
+                                    size=12,
+                                    color=TEXT_SECONDARY,
+                                    text_align=ft.TextAlign.CENTER,
+                                    italic=True
+                                ),
+                            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
+                            bgcolor=f"{estado_color}10",
+                            padding=15,
+                            border_radius=10,
+                            border=ft.border.all(1, f"{estado_color}30")
+                        ),
+                    ], spacing=12),
+                    padding=20
+                ),
+
+                # Botón de renovar (habilitado porque expiró)
                 ft.Container(
                     content=ft.ElevatedButton(
                         content=ft.Row([
                             ft.Icon(ft.Icons.AUTORENEW, size=22, color="#FFFFFF"),
-                            ft.Text("RENOVAR MEMBRESÍA", size=14, weight=ft.FontWeight.BOLD, color="#FFFFFF")
+                            ft.Text("RENOVAR AHORA", size=14, weight=ft.FontWeight.BOLD, color="#FFFFFF")
                         ], alignment=ft.MainAxisAlignment.CENTER, spacing=10),
                         style=ft.ButtonStyle(
                             bgcolor=PRIMARY_COLOR,

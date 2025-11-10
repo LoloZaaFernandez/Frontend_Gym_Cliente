@@ -57,15 +57,9 @@ class AuthService:
             return self._login_admin_local(username, password)
 
     def _login_admin_local(self, username: str, password: str) -> bool:
-        """Fallback: autenticación local"""
-        from database.db_manager import DatabaseManager
-        db = DatabaseManager()
-        user = db.get_admin_por_credenciales(username, password)
-
-        if user:
-            self.current_user = user
-            self.current_role = 'admin'
-            return True
+        """Fallback: autenticación local (actualmente deshabilitado, requiere API)"""
+        # La base de datos local fue removida, ahora solo se usa la API
+        print("Advertencia: Autenticación local no disponible. Se requiere conexión con el backend.")
         return False
 
     def login_cliente(self, dni: str) -> bool:
@@ -101,15 +95,9 @@ class AuthService:
             return self._login_cliente_local(dni)
 
     def _login_cliente_local(self, dni: str) -> bool:
-        """Fallback: autenticación local de cliente"""
-        from database.db_manager import DatabaseManager
-        db = DatabaseManager()
-        user = db.get_cliente_por_dni(dni)
-
-        if user:
-            self.current_user = user
-            self.current_role = 'cliente'
-            return True
+        """Fallback: autenticación local de cliente (actualmente deshabilitado, requiere API)"""
+        # La base de datos local fue removida, ahora solo se usa la API
+        print("Advertencia: Autenticación local no disponible. Se requiere conexión con el backend.")
         return False
 
     def logout(self):

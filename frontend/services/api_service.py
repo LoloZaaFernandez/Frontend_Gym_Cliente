@@ -33,8 +33,15 @@ class APIService:
             elif response.status_code == 400:
                 error_detail = response.json().get('detail', 'Error de validación')
                 raise ValueError(error_detail)
+            elif response.status_code == 500:
+                # Error del servidor - mostrar detalles si están disponibles
+                try:
+                    error_detail = response.json().get('detail', 'Error interno del servidor')
+                    raise ValueError(f"Error del servidor: {error_detail}")
+                except:
+                    raise ValueError(f"Error interno del servidor (500). Verifica que el backend esté funcionando correctamente.")
             else:
-                raise ValueError(f"Error en la API: {str(e)}")
+                raise ValueError(f"Error en la API ({response.status_code}): {str(e)}")
         except requests.exceptions.RequestException as e:
             raise ConnectionError(f"Error de conexión: {str(e)}")
 
@@ -209,6 +216,23 @@ class APIService:
                 "asistencias_recientes": []
             }
 
+    def get_metodo_pago_cliente(self, cliente_id: int) -> str:
+        """Obtener el método de pago más reciente de un cliente"""
+        try:
+            pagos = self.get_pagos_membresia_cliente(cliente_id)
+            if pagos and len(pagos) > 0:
+                # Ordenar por fecha de pago (más reciente primero)
+                pagos_ordenados = sorted(
+                    pagos,
+                    key=lambda x: x.get('fecha_pago', ''),
+                    reverse=True
+                )
+                return pagos_ordenados[0].get('metodo_pago', 'No especificado')
+            return 'Sin registro'
+        except Exception as e:
+            print(f"Error al obtener método de pago del cliente {cliente_id}: {e}")
+            return 'Sin registro'
+
     # ==================== MEMBRESÍAS ====================
 
     def get_membresias(self, estado: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -252,14 +276,38 @@ class APIService:
             print(f"Error al obtener pagos del cliente: {e}")
             return []
 
+    def get_membresias_cliente(self, cliente_id: int) -> List[Dict[str, Any]]:
+        """Obtener membresías del cliente (información detallada)"""
+        # Primero intentar obtener desde endpoint específico si existe
+        url = f"{self.base_url}/api/membresias/cliente/{cliente_id}"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener membresías del cliente desde endpoint específico: {e}")
+            # Si falla, usar get_pagos_membresia_cliente como fallback
+            pagos = self.get_pagos_membresia_cliente(cliente_id)
+            if pagos:
+                # Extraer información de la membresía del primer pago
+                primer_pago = pagos[0]
+                return [{
+                    'nombre_membresia': primer_pago.get('nombre_membresia', 'Sin plan'),
+                    'tipo_membresia': primer_pago.get('tipo_membresia', 'Mensual'),
+                    'fecha_inicio': primer_pago.get('fecha_inicio'),
+                    'fecha_fin': primer_pago.get('fecha_fin')
+                }]
+            return []
+
     # ==================== PRODUCTOS ====================
 
-    def get_productos(self, tipo: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Obtener lista de productos"""
+    def get_productos(self, categoria_id: Optional[int] = None, estado: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Obtener lista de productos con filtros opcionales"""
         url = f"{self.base_url}/api/productos"
         params = {}
-        if tipo:
-            params['tipo'] = tipo
+        if categoria_id:
+            params['categoria_id'] = categoria_id
+        if estado:
+            params['estado'] = estado
 
         try:
             response = self.session.get(url, params=params, timeout=self.timeout)
@@ -267,6 +315,16 @@ class APIService:
         except Exception as e:
             print(f"Error al obtener productos: {e}")
             return []
+
+    def get_producto_by_id(self, producto_id: int) -> Dict[str, Any]:
+        """Obtener un producto por ID"""
+        url = f"{self.base_url}/api/productos/{producto_id}"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener producto: {e}")
+            return None
 
     def crear_producto(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Crear nuevo producto"""
@@ -276,6 +334,69 @@ class APIService:
             return self._handle_response(response)
         except Exception as e:
             raise ValueError(f"Error al crear producto: {str(e)}")
+
+    def actualizar_producto(self, producto_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Actualizar un producto"""
+        url = f"{self.base_url}/api/productos/{producto_id}"
+        try:
+            response = self.session.put(url, json=data, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al actualizar producto: {str(e)}")
+
+    def eliminar_producto(self, producto_id: int) -> Dict[str, Any]:
+        """Eliminar (desactivar) un producto"""
+        url = f"{self.base_url}/api/productos/{producto_id}"
+        try:
+            response = self.session.delete(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al eliminar producto: {str(e)}")
+
+    # Categorías de productos
+    def get_categorias(self, estado: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Obtener lista de categorías de productos"""
+        url = f"{self.base_url}/api/productos/categorias"
+        params = {}
+        if estado:
+            params['estado'] = estado
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener categorías: {e}")
+            return []
+
+    def crear_categoria(self, nombre: str, descripcion: str = "") -> Dict[str, Any]:
+        """Crear nueva categoría de producto"""
+        url = f"{self.base_url}/api/productos/categorias"
+        data = {"nombre": nombre, "descripcion": descripcion}
+        try:
+            response = self.session.post(url, json=data, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al crear categoría: {str(e)}")
+
+    # Inventario
+    def get_stock_producto(self, producto_id: int) -> Dict[str, Any]:
+        """Obtener stock actual de un producto"""
+        url = f"{self.base_url}/api/productos/inventario/stock/{producto_id}"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener stock: {e}")
+            return {"stock_actual": 0}
+
+    def registrar_movimiento_inventario(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Registrar movimiento de inventario (Entrada/Salida)"""
+        url = f"{self.base_url}/api/productos/inventario"
+        try:
+            response = self.session.post(url, json=data, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al registrar movimiento: {str(e)}")
 
     # ==================== VENTAS (POS) ====================
 
@@ -341,7 +462,7 @@ class APIService:
             return self._handle_response(response)
         except Exception as e:
             print(f"Error al obtener precio de membresía: {e}")
-            return None  # 
+            return None  # Retorna None si no se encuentra el precio o hay error de conexión 
 
     def crear_membresia(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Crear nueva membresía"""
