@@ -223,7 +223,7 @@ def show_productos_view(page: ft.Page, auth_service, on_section_click, current_s
         if categoria_filtro and categoria_filtro != "todos":
             productos_filtrados = [
                 p for p in productos_filtrados
-                if str(p.get('categoria_id')) == categoria_filtro
+                if str(p.get('id_categoria')) == categoria_filtro
             ]
 
         current_page[0] = 0
@@ -305,7 +305,7 @@ def show_productos_view(page: ft.Page, auth_service, on_section_click, current_s
             # Obtener nombre de categoría
             categoria_nombre = "Sin categoría"
             for cat in categorias_list:
-                if cat['id'] == producto.get('categoria_id'):
+                if cat['id'] == producto.get('id_categoria'):
                     categoria_nombre = cat['nombre']
                     break
 
@@ -513,7 +513,7 @@ def show_productos_view(page: ft.Page, auth_service, on_section_click, current_s
 
         nombre_field.value = producto['nombre']
         descripcion_field.value = producto.get('descripcion', '')
-        categoria_dropdown.value = str(producto['categoria_id'])
+        categoria_dropdown.value = str(producto['id_categoria'])
         precio_field.value = str(producto['precio'])
         stock_minimo_field.value = str(producto.get('stock_minimo', 5))
         estado_dropdown.value = producto.get('estado', 'Activo')

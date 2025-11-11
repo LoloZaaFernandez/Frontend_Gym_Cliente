@@ -12,10 +12,10 @@ TEXT_PRIMARY = "#FFFFFF"       # Texto principal blanco
 TEXT_SECONDARY = "#CCCCCC"     # Texto secundario gris claro
 
 # --- RUTAS DE ARCHIVOS ---
-LOGO_PATH = r"C:\Sistema_Blessed_V2\Frontend_Gym_Cliente\frontend\img\logo.png" 
-BG_PATH = r"C:\Sistema_Blessed_V2\Frontend_Gym_Cliente\frontend\img\gym.jpg"
-BG_PATH_CLIENT = r"C:\Sistema_Blessed_V2\Frontend_Gym_Cliente\frontend\img\bg_gym_client.jpg" 
-BG_PATH_ROL = r"C:\Sistema_Blessed_V2\Frontend_Gym_Cliente\frontend\img\BG_SEL_ROL.jpg"
+LOGO_PATH = r"C:\Frontend V3\Frontend_Gym_Cliente\frontend\img\logo.png" 
+BG_PATH = r"C:\Frontend V3\Frontend_Gym_Cliente\frontend\img\gym.jpg"
+BG_PATH_CLIENT = r"C:\Frontend V3\Frontend_Gym_Cliente\frontend\img\bg_gym_client.jpg" 
+BG_PATH_ROL = r"C:\Frontend V3\Frontend_Gym_Cliente\frontend\img\BG_SEL_ROL.jpg"
 
 # --- CONFIGURACIÓN DE LA APLICACIÓN ---
 APP_TITLE = "BLESSED GYM"

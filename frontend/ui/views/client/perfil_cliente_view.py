@@ -4,11 +4,12 @@ ANTES: 255 líneas | DESPUÉS: ~180 líneas (29% menos código)
 """
 
 import flet as ft
-from datetime import datetime
+from datetime import datetime, timedelta
 from config.theme import Theme
 from config.settings import LOGO_PATH
 from ui.layouts import create_base_layout
 from ui.components.molecules import create_card_container
+from services.api_service import APIService
 
 
 def show_perfil_cliente_view(page: ft.Page, auth_service, on_section_click, current_section, on_navigate_membresias=None):
@@ -30,17 +31,188 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_section_click, curr
 
     cliente = auth_service.get_current_user()
     user_info = {"nombre": cliente.get("nombre", "Cliente"), "rol": "Cliente"}
+    api = APIService()
 
-    # Datos adicionales (integrar con DB real)
-    datos_adicionales = {
-        "fecha_registro": "15/01/2024",
-        "fecha_ultima_asistencia": "05/11/2025",
-        "total_asistencias": 87,
-        "racha_dias": 5,
-        "membresia_tipo": "Mensual",
-        "membresia_vencimiento": "30/11/2025",
-        "membresia_estado": "Activa"
-    }
+    # Obtener datos reales del cliente desde la API
+    def obtener_datos_cliente():
+        """Obtener todos los datos del cliente desde la API"""
+        try:
+            cliente_id = cliente.get('id')
+
+            # Obtener estadísticas de asistencias
+            stats_asistencias = api.get_estadisticas_cliente(cliente_id)
+
+            # Obtener asistencias para calcular racha
+            asistencias = api.get_asistencias_cliente(cliente_id)
+            racha_dias = calcular_racha_dias(asistencias)
+
+            # Obtener información de membresía
+            pagos_membresia = api.get_pagos_membresia_cliente(cliente_id)
+            membresia_info = obtener_info_membresia(pagos_membresia)
+
+            # Formatear fecha de registro
+            fecha_registro = cliente.get('fecha_registro', '')
+            if fecha_registro:
+                try:
+                    fecha_obj = datetime.fromisoformat(fecha_registro.replace('Z', '+00:00'))
+                    fecha_registro_formateada = fecha_obj.strftime('%d/%m/%Y')
+                except:
+                    fecha_registro_formateada = "No disponible"
+            else:
+                fecha_registro_formateada = "No disponible"
+
+            # Formatear última asistencia
+            ultima_asistencia = stats_asistencias.get('ultima_asistencia', '')
+            if ultima_asistencia:
+                try:
+                    fecha_obj = datetime.fromisoformat(ultima_asistencia.replace('Z', '+00:00'))
+                    ultima_asistencia_formateada = fecha_obj.strftime('%d/%m/%Y')
+                except:
+                    ultima_asistencia_formateada = "No disponible"
+            else:
+                ultima_asistencia_formateada = "Nunca"
+
+            return {
+                "fecha_registro": fecha_registro_formateada,
+                "fecha_ultima_asistencia": ultima_asistencia_formateada,
+                "total_asistencias": stats_asistencias.get('total_asistencias', 0),
+                "racha_dias": racha_dias,
+                "membresia_tipo": membresia_info.get('tipo', 'Sin membresía'),
+                "membresia_vencimiento": membresia_info.get('vencimiento', 'N/A'),
+                "membresia_estado": membresia_info.get('estado', 'Inactiva')
+            }
+        except Exception as e:
+            print(f"Error al obtener datos del cliente: {e}")
+            return {
+                "fecha_registro": "No disponible",
+                "fecha_ultima_asistencia": "No disponible",
+                "total_asistencias": 0,
+                "racha_dias": 0,
+                "membresia_tipo": "Sin membresía",
+                "membresia_vencimiento": "N/A",
+                "membresia_estado": "Inactiva"
+            }
+
+    def calcular_racha_dias(asistencias):
+        """Calcular racha de días consecutivos desde las asistencias"""
+        if not asistencias:
+            return 0
+
+        try:
+            # Ordenar asistencias por fecha (más reciente primero)
+            asistencias_ordenadas = sorted(
+                asistencias,
+                key=lambda x: x.get('fecha_asistencia', ''),
+                reverse=True
+            )
+
+            if not asistencias_ordenadas:
+                return 0
+
+            # Obtener fechas únicas (sin duplicados del mismo día)
+            fechas = []
+            for asistencia in asistencias_ordenadas:
+                fecha_str = asistencia.get('fecha_asistencia', '')
+                if fecha_str and fecha_str not in fechas:
+                    fechas.append(fecha_str)
+
+            if not fechas:
+                return 0
+
+            # Calcular racha
+            racha = 1
+            fecha_actual = datetime.now().date()
+
+            # Verificar si la última asistencia fue hoy o ayer
+            ultima_fecha = datetime.fromisoformat(fechas[0].replace('Z', '+00:00')).date()
+            dias_diferencia = (fecha_actual - ultima_fecha).days
+
+            if dias_diferencia > 1:
+                return 0  # La racha se rompió
+
+            # Contar días consecutivos
+            for i in range(len(fechas) - 1):
+                fecha1 = datetime.fromisoformat(fechas[i].replace('Z', '+00:00')).date()
+                fecha2 = datetime.fromisoformat(fechas[i + 1].replace('Z', '+00:00')).date()
+
+                diferencia = (fecha1 - fecha2).days
+
+                if diferencia == 1:
+                    racha += 1
+                else:
+                    break
+
+            return racha
+        except Exception as e:
+            print(f"Error al calcular racha: {e}")
+            return 0
+
+    def obtener_info_membresia(pagos):
+        """Obtener información de la membresía activa"""
+        if not pagos:
+            return {
+                "tipo": "Sin membresía",
+                "vencimiento": "N/A",
+                "estado": "Inactiva"
+            }
+
+        try:
+            # Obtener el pago más reciente
+            pago_reciente = sorted(
+                pagos,
+                key=lambda x: x.get('fecha_pago', ''),
+                reverse=True
+            )[0]
+
+            # Calcular fecha de vencimiento (desde fecha_pago)
+            fecha_pago = pago_reciente.get('fecha_pago', '')
+            tipo_membresia = pago_reciente.get('tipo_membresia', 'Mensual')
+
+            if fecha_pago:
+                try:
+                    fecha_obj = datetime.fromisoformat(fecha_pago.replace('Z', '+00:00'))
+
+                    # Calcular vencimiento según tipo
+                    if 'Mensual' in tipo_membresia:
+                        fecha_vencimiento = fecha_obj + timedelta(days=30)
+                    elif 'Trimestral' in tipo_membresia:
+                        fecha_vencimiento = fecha_obj + timedelta(days=90)
+                    elif 'Semestral' in tipo_membresia:
+                        fecha_vencimiento = fecha_obj + timedelta(days=180)
+                    elif 'Anual' in tipo_membresia:
+                        fecha_vencimiento = fecha_obj + timedelta(days=365)
+                    else:
+                        fecha_vencimiento = fecha_obj + timedelta(days=30)
+
+                    vencimiento_formateado = fecha_vencimiento.strftime('%d/%m/%Y')
+
+                    # Verificar si está activa
+                    hoy = datetime.now()
+                    estado = "Activa" if fecha_vencimiento > hoy else "Vencida"
+
+                    return {
+                        "tipo": tipo_membresia,
+                        "vencimiento": vencimiento_formateado,
+                        "estado": estado
+                    }
+                except:
+                    pass
+
+            return {
+                "tipo": tipo_membresia,
+                "vencimiento": "No disponible",
+                "estado": "Desconocida"
+            }
+        except Exception as e:
+            print(f"Error al obtener info de membresía: {e}")
+            return {
+                "tipo": "Sin membresía",
+                "vencimiento": "N/A",
+                "estado": "Inactiva"
+            }
+
+    # Obtener datos reales del cliente
+    datos_adicionales = obtener_datos_cliente()
 
     def crear_campo_info(label, valor, icon):
         """Crear campo de información"""

@@ -157,10 +157,58 @@ class APIService:
             return []
 
     def get_asistencias_hoy(self) -> List[Dict[str, Any]]:
-        """Obtener asistencias del día actual"""
-        from datetime import datetime
-        fecha_hoy = datetime.now().strftime("%Y-%m-%d")
-        return self.get_asistencias(fecha_inicio=fecha_hoy, fecha_fin=fecha_hoy)
+        """Obtener asistencias del día actual (Perú UTC-5)
+
+        IMPORTANTE: El backend guarda con fecha UTC, así que si son las 19:00-23:59 en Perú,
+        la fecha UTC ya es el día siguiente. Por eso buscamos asistencias que fueron creadas
+        en las últimas 24 horas y las filtramos por fecha de Perú.
+        """
+        from datetime import datetime, timezone, timedelta
+
+        # Zona horaria de Perú (UTC-5)
+        peru_tz = timezone(timedelta(hours=-5))
+        ahora_peru = datetime.now(peru_tz)
+        fecha_hoy_peru = ahora_peru.strftime("%Y-%m-%d")
+
+        # Como el backend guarda en UTC, la fecha puede ser hoy o mañana en UTC
+        # dependiendo de la hora en Perú
+        ahora_utc = datetime.now(timezone.utc)
+        fecha_hoy_utc = ahora_utc.strftime("%Y-%m-%d")
+        fecha_manana_utc = (ahora_utc + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        print(f"DEBUG API: Fecha HOY en Perú (UTC-5): {fecha_hoy_peru}")
+        print(f"DEBUG API: Fecha en UTC: {fecha_hoy_utc}")
+        print(f"DEBUG API: Hora actual Perú: {ahora_peru.strftime('%H:%M:%S')}")
+        print(f"DEBUG API: Hora actual UTC: {ahora_utc.strftime('%H:%M:%S')}")
+
+        # Obtener todas las asistencias de hoy (en todas las zonas horarias posibles)
+        todas_asistencias = []
+
+        # Buscar en fecha de hoy UTC
+        asist_hoy = self.get_asistencias(fecha_inicio=fecha_hoy_utc, fecha_fin=fecha_hoy_utc)
+        todas_asistencias.extend(asist_hoy)
+
+        # Si la fecha UTC es diferente a la de Perú, también buscar en esa fecha
+        if fecha_hoy_utc != fecha_hoy_peru:
+            asist_ayer = self.get_asistencias(fecha_inicio=fecha_hoy_peru, fecha_fin=fecha_hoy_peru)
+            todas_asistencias.extend(asist_ayer)
+
+        # Si estamos después de las 19:00 en Perú (00:00 UTC del día siguiente)
+        if ahora_peru.hour >= 19:
+            asist_manana = self.get_asistencias(fecha_inicio=fecha_manana_utc, fecha_fin=fecha_manana_utc)
+            todas_asistencias.extend(asist_manana)
+
+        # Eliminar duplicados por ID
+        asistencias_unicas = {}
+        for asist in todas_asistencias:
+            asist_id = asist.get('id')
+            if asist_id and asist_id not in asistencias_unicas:
+                asistencias_unicas[asist_id] = asist
+
+        resultado = list(asistencias_unicas.values())
+        print(f"DEBUG API: Se obtuvieron {len(resultado)} asistencias únicas del día de hoy")
+
+        return resultado
 
     def get_asistencias_mes(self) -> List[Dict[str, Any]]:
         """Obtener asistencias del mes actual"""
@@ -431,6 +479,133 @@ class APIService:
                 "ingresos_hoy": 0.0,
                 "ingresos_mes": 0.0
             }
+
+    # Reportes de Pagos
+    def get_reporte_pagos_dia(self, fecha: Optional[str] = None) -> Dict[str, Any]:
+        """Obtener reporte de pagos por día"""
+        url = f"{self.base_url}/api/reportes/pagos/dia"
+        params = {}
+        if fecha:
+            params['fecha'] = fecha
+        try:
+            print(f"DEBUG API: Llamando a {url} con params: {params}")
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            print(f"DEBUG API: Status code: {response.status_code}")
+            print(f"DEBUG API: Response text: {response.text[:500]}")  # Primeros 500 caracteres
+            resultado = self._handle_response(response)
+            print(f"DEBUG API: Resultado parseado: {resultado}")
+            return resultado
+        except Exception as e:
+            print(f"ERROR API: Error al obtener reporte de pagos del día: {e}")
+            import traceback
+            traceback.print_exc()
+            return {}
+
+    def get_reporte_pagos_semana(self, fecha_inicio: Optional[str] = None, fecha_fin: Optional[str] = None) -> Dict[str, Any]:
+        """Obtener reporte de pagos por semana"""
+        url = f"{self.base_url}/api/reportes/pagos/semana"
+        params = {}
+        if fecha_inicio:
+            params['fecha_inicio'] = fecha_inicio
+        if fecha_fin:
+            params['fecha_fin'] = fecha_fin
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte de pagos de la semana: {e}")
+            return {}
+
+    def get_reporte_pagos_mes(self, mes: Optional[int] = None, anio: Optional[int] = None) -> Dict[str, Any]:
+        """Obtener reporte de pagos por mes"""
+        url = f"{self.base_url}/api/reportes/pagos/mes"
+        params = {}
+        if mes:
+            params['mes'] = mes
+        if anio:
+            params['anio'] = anio
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte de pagos del mes: {e}")
+            return {}
+
+    def get_reporte_pagos_anio(self, anio: Optional[int] = None) -> Dict[str, Any]:
+        """Obtener reporte de pagos por año"""
+        url = f"{self.base_url}/api/reportes/pagos/anio"
+        params = {}
+        if anio:
+            params['anio'] = anio
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte de pagos del año: {e}")
+            return {}
+
+    # Reportes de Clientes
+    def get_reporte_clientes_general(self) -> Dict[str, Any]:
+        """Obtener reporte general de clientes"""
+        url = f"{self.base_url}/api/reportes/clientes/general"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte general de clientes: {e}")
+            return {}
+
+    def get_reporte_clientes_nuevos(self, fecha_inicio: Optional[str] = None, fecha_fin: Optional[str] = None) -> Dict[str, Any]:
+        """Obtener reporte de clientes nuevos"""
+        url = f"{self.base_url}/api/reportes/clientes/nuevos"
+        params = {}
+        if fecha_inicio:
+            params['fecha_inicio'] = fecha_inicio
+        if fecha_fin:
+            params['fecha_fin'] = fecha_fin
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte de clientes nuevos: {e}")
+            return {}
+
+    def get_reporte_clientes_membresia_vencida(self) -> Dict[str, Any]:
+        """Obtener reporte de clientes con membresía vencida"""
+        url = f"{self.base_url}/api/reportes/clientes/membresia-vencida"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte de membresías vencidas: {e}")
+            return {}
+
+    def get_reporte_clientes_membresia_por_vencer(self, dias: int = 7) -> Dict[str, Any]:
+        """Obtener reporte de clientes con membresía por vencer"""
+        url = f"{self.base_url}/api/reportes/clientes/membresia-por-vencer"
+        params = {'dias': dias}
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte de membresías por vencer: {e}")
+            return {}
+
+    # Reportes de Asistencias
+    def get_reporte_asistencias(self, fecha_inicio: Optional[str] = None, fecha_fin: Optional[str] = None) -> Dict[str, Any]:
+        """Obtener reporte de asistencias"""
+        url = f"{self.base_url}/api/reportes/asistencias"
+        params = {}
+        if fecha_inicio:
+            params['fecha_inicio'] = fecha_inicio
+        if fecha_fin:
+            params['fecha_fin'] = fecha_fin
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte de asistencias: {e}")
+            return {}
 
     def get_ventas_recientes(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Obtener ventas recientes"""

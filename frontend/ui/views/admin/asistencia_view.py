@@ -32,6 +32,7 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
     asistencias_filtradas = []
     stats_hoy = {"total_asistencias": 0}
     stats_mes = {"promedio_diario": 0}
+    metodos_pago_cache = {}  # Cache para métodos de pago
 
     # Paginación
     items_per_page = 10
@@ -80,13 +81,14 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
     pagination_text = ft.Text("", size=Theme.FONT_SIZE["sm"], color=Theme.TEXT_SECONDARY)
     stat_total_hoy = ft.Ref[ft.Container]()
     stat_promedio_mes = ft.Ref[ft.Container]()
+    contador_registros = ft.Ref[ft.Text]()
 
     # ==========================================
     # FUNCIONES DE DATOS
     # ==========================================
     def load_estadisticas():
         """Cargar estadísticas y asistencias"""
-        nonlocal asistencias_list, asistencias_filtradas, stats_hoy, stats_mes
+        nonlocal asistencias_list, asistencias_filtradas, stats_hoy, stats_mes, metodos_pago_cache
 
         try:
             # Cargar todas las asistencias de hoy
@@ -98,6 +100,17 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
             asistencias_mes = api.get_asistencias_mes()
             dias_transcurridos = datetime.now().day
             stats_mes["promedio_diario"] = round(len(asistencias_mes) / dias_transcurridos, 1) if dias_transcurridos > 0 else 0
+
+            # Pre-cargar métodos de pago de todos los clientes con asistencias
+            metodos_pago_cache.clear()
+            clientes_ids = set(a.get('id_cliente') for a in asistencias_list if a.get('id_cliente'))
+
+            for cliente_id in clientes_ids:
+                try:
+                    metodo = api.get_metodo_pago_cliente(cliente_id)
+                    metodos_pago_cache[cliente_id] = metodo
+                except:
+                    metodos_pago_cache[cliente_id] = "Sin registro"
 
         except Exception as e:
             print(f"Error al cargar estadísticas: {e}")
@@ -148,6 +161,11 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
     def update_tabla():
         """Actualizar tabla de asistencias con paginación"""
         tabla_container.controls.clear()
+
+        # Actualizar contador de registros
+        if contador_registros.current:
+            contador_registros.current.value = f"{len(asistencias_list)} registros"
+            contador_registros.current.update()
 
         if not asistencias_filtradas:
             tabla_container.controls.append(
@@ -224,11 +242,9 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
                 except:
                     fecha_str = fecha_asistencia
 
-            # Obtener método de pago del cliente
+            # Obtener método de pago del cache (pre-cargado en load_estadisticas)
             cliente_id = asistencia.get('id_cliente')
-            metodo_pago = "Sin registro"
-            if cliente_id:
-                metodo_pago = api.get_metodo_pago_cliente(cliente_id)
+            metodo_pago = metodos_pago_cache.get(cliente_id, "Sin registro")
 
             # Nombre del cliente
             nombre_cliente = asistencia.get('nombre_cliente', 'N/A')
@@ -355,29 +371,67 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
 
     def buscar_cliente():
         """Buscar cliente por DNI"""
+        nonlocal asistencias_list, asistencias_filtradas
+
         dni = dni_search.value
         if not dni or len(dni) != 8:
             mostrar_error(page, "Ingrese un DNI válido (8 dígitos)")
             return
 
         try:
+            print(f"DEBUG: Buscando cliente con DNI: {dni}")
             cliente = api.get_cliente_by_dni(dni)
+
             if not cliente:
-                mostrar_error(page, f"No se encontró cliente con DNI {dni}")
+                print(f"DEBUG: Cliente no encontrado con DNI: {dni}")
+                mostrar_error(page, f"❌ No se encontró cliente con DNI {dni}")
                 cliente_info_container.visible = False
                 cliente_actual[0] = None
                 page.update()
                 return
 
+            print(f"DEBUG: Cliente encontrado: {cliente.get('nombre')} {cliente.get('apellidos')}")
             cliente_actual[0] = cliente
 
+            # IMPORTANTE: Recargar asistencias de hoy ANTES de verificar duplicados
+            # Esto asegura que tengamos los datos más recientes
+            print(f"DEBUG: Recargando asistencias del día para verificar duplicados...")
+            asistencias_list = api.get_asistencias_hoy()
+            asistencias_filtradas = asistencias_list.copy()
+            stats_hoy["total_asistencias"] = len(asistencias_list)
+            print(f"DEBUG: Asistencias recargadas: {len(asistencias_list)} registros")
+
+            # Actualizar tabla con nuevos datos
+            update_stats()
+            update_tabla()
+
             # Verificar si ya tiene asistencia hoy
+            # IMPORTANTE: No necesitamos verificar la fecha porque get_asistencias_hoy()
+            # ya retorna solo las asistencias del día de hoy (considerando zona horaria)
             ya_registro_hoy = False
             hora_registro = None
 
-            for asist in asistencias_list:
-                if (asist.get('id_cliente') == cliente['id']):
+            print(f"DEBUG: Verificando asistencia para cliente ID '{cliente['id']}' (tipo: {type(cliente['id'])})")
+            print(f"DEBUG: Total asistencias de HOY en lista: {len(asistencias_list)}")
+
+            # Debug: mostrar todas las asistencias para ver cuáles hay
+            for idx, asist in enumerate(asistencias_list):
+                print(f"DEBUG: Asistencia {idx}: cliente_id={asist.get('id_cliente')} (tipo: {type(asist.get('id_cliente'))}), nombre={asist.get('nombre_cliente')}, fecha={asist.get('fecha_asistencia')}, hora={asist.get('hora_ingreso')}")
+
+            # Buscar si el cliente ya tiene asistencia en la lista de hoy
+            for idx, asist in enumerate(asistencias_list):
+                # Comparar IDs convirtiendo ambos a string para evitar problemas de tipo
+                id_asist = str(asist.get('id_cliente', ''))
+                id_cliente = str(cliente.get('id', ''))
+
+                print(f"DEBUG: Comparando asistencia {idx}: '{id_asist}' == '{id_cliente}' ? {id_asist == id_cliente}")
+
+                if id_asist == id_cliente and id_asist != '':
+                    # Si está en la lista de "asistencias de hoy", entonces ya registró
                     ya_registro_hoy = True
+                    print(f"DEBUG: ¡Cliente YA registró asistencia hoy! (asistencia #{idx})")
+
+                    # Obtener hora de registro
                     hora_ingreso = asist.get('hora_ingreso')
                     if hora_ingreso:
                         if 'T' in str(hora_ingreso):
@@ -385,8 +439,13 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
                             if dt:
                                 hora_registro = format_time_display(dt)
                         else:
-                            hora_registro = str(hora_ingreso)[:5]
+                            # Es solo hora (HH:MM:SS.mmmmmm)
+                            hora_registro = str(hora_ingreso)[:8]  # HH:MM:SS
+
+                    print(f"DEBUG: Hora de registro: {hora_registro}")
                     break
+
+            print(f"DEBUG: ya_registro_hoy = {ya_registro_hoy}")
 
             # Verificar membresía activa
             fecha_membresia = cliente.get('fecha_membresia')
@@ -431,17 +490,34 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
             ]
 
             if ya_registro_hoy:
+                # Usar zona horaria de Perú para mostrar la fecha
+                from datetime import timezone, timedelta
+                peru_tz = timezone(timedelta(hours=-5))
+                fecha_hoy_formateada = datetime.now(peru_tz).strftime("%d/%m/%Y")
+
+                mensaje_ya_registrado = f"✓ Asistencia ya registrada hoy ({fecha_hoy_formateada})"
+                if hora_registro:
+                    mensaje_ya_registrado += f" a las {hora_registro}"
+
                 info_controls.append(
                     ft.Container(
-                        content=ft.Row([
-                            ft.Icon(ft.Icons.INFO, color=Theme.WARNING, size=20),
+                        content=ft.Column([
+                            ft.Row([
+                                ft.Icon(ft.Icons.CHECK_CIRCLE, color=Theme.WARNING, size=24),
+                                ft.Text(
+                                    mensaje_ya_registrado,
+                                    size=Theme.FONT_SIZE["sm"],
+                                    color=Theme.WARNING,
+                                    weight=Theme.FONT_WEIGHT["bold"]
+                                )
+                            ], spacing=8),
                             ft.Text(
-                                f"✓ Asistencia ya registrada hoy a las {hora_registro}",
-                                size=Theme.FONT_SIZE["sm"],
-                                color=Theme.WARNING,
-                                weight=Theme.FONT_WEIGHT["bold"]
+                                "Este cliente ya no puede registrar otra asistencia hoy",
+                                size=Theme.FONT_SIZE["xs"],
+                                color=Theme.TEXT_SECONDARY,
+                                italic=True
                             )
-                        ], spacing=8),
+                        ], spacing=4),
                         bgcolor=f"{Theme.WARNING}20",
                         padding=Theme.SPACING["md"],
                         border_radius=Theme.RADIUS["md"],
@@ -470,9 +546,17 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
             cliente_info_container.visible = True
 
             if not tiene_membresia_activa:
-                mostrar_error(page, "El cliente no tiene una membresía activa")
+                mostrar_error(page, "⚠️ El cliente no tiene una membresía activa")
             elif ya_registro_hoy:
-                mostrar_error(page, f"El cliente ya registró su asistencia hoy a las {hora_registro}")
+                # Usar zona horaria de Perú para mostrar la fecha
+                from datetime import timezone, timedelta
+                peru_tz = timezone(timedelta(hours=-5))
+                fecha_hoy_formateada = datetime.now(peru_tz).strftime("%d/%m/%Y")
+
+                if hora_registro:
+                    mostrar_error(page, f"⚠️ El cliente ya registró asistencia hoy ({fecha_hoy_formateada}) a las {hora_registro}")
+                else:
+                    mostrar_error(page, f"⚠️ El cliente ya registró asistencia hoy ({fecha_hoy_formateada})")
 
             page.update()
 
@@ -486,12 +570,38 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
             return
 
         try:
-            api.registrar_asistencia(cliente_actual[0]['dni'])
-            mostrar_exito(page, f"Asistencia registrada para {cliente_actual[0]['nombre']}")
+            print(f"DEBUG: Registrando asistencia para DNI: {cliente_actual[0]['dni']}")
+
+            # Registrar asistencia
+            resultado = api.registrar_asistencia(cliente_actual[0]['dni'])
+            print(f"DEBUG: Resultado del registro: {resultado}")
+
+            # Mostrar mensaje de éxito con más detalle
+            nombre_completo = f"{cliente_actual[0]['nombre']} {cliente_actual[0]['apellidos']}"
+            mostrar_exito(page, f"✓ Asistencia registrada para {nombre_completo}")
+
+            # Limpiar formulario
             cancelar_busqueda()
+
+            # Recargar datos para mostrar la nueva asistencia
             load_estadisticas()
 
+            print("DEBUG: Asistencia registrada exitosamente")
+
+        except ValueError as e:
+            error_msg = str(e)
+            print(f"DEBUG: Error ValueError: {error_msg}")
+
+            # Mensajes más amigables para el usuario
+            if "ya registró asistencia" in error_msg.lower():
+                mostrar_error(page, "Este cliente ya registró su asistencia hoy")
+            elif "no tiene membresía activa" in error_msg.lower():
+                mostrar_error(page, "El cliente no tiene una membresía activa")
+            else:
+                mostrar_error(page, f"Error: {error_msg}")
+
         except Exception as e:
+            print(f"DEBUG: Error Exception: {type(e).__name__}: {str(e)}")
             mostrar_error(page, f"Error al registrar asistencia: {str(e)}")
 
     def cancelar_busqueda():
@@ -506,8 +616,9 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
     # ==========================================
     def build_content():
         # Calcular paginación
-        total_asistencias = len(asistencias_filtradas)
-        total_pages = max(1, (total_asistencias + items_per_page - 1) // items_per_page)
+        total_asistencias_filtradas = len(asistencias_filtradas)
+        total_asistencias_hoy = len(asistencias_list)  # Total real del día
+        total_pages = max(1, (total_asistencias_filtradas + items_per_page - 1) // items_per_page)
         current_page_display = current_page[0] + 1
 
         if current_page[0] >= total_pages and total_pages > 0:
@@ -550,10 +661,11 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
                         content=ft.Row([
                             ft.Icon(ft.Icons.FITNESS_CENTER, size=16, color=Theme.PRIMARY),
                             ft.Text(
-                                f"{total_asistencias} registros",
+                                f"{total_asistencias_hoy} registros",
                                 size=Theme.FONT_SIZE["sm"],
                                 color=Theme.TEXT_SECONDARY,
-                                weight=Theme.FONT_WEIGHT["medium"]
+                                weight=Theme.FONT_WEIGHT["medium"],
+                                ref=contador_registros
                             ),
                         ], spacing=4),
                         bgcolor=f"{Theme.PRIMARY}15",
