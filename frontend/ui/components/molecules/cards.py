@@ -68,7 +68,8 @@ def create_stat_card(
     trend=None,
     trend_positive=True,
     width=None,
-    on_click=None
+    on_click=None,
+    icon_label=None
 ):
     """
     Crear tarjeta de estadística con ícono y tendencia opcional
@@ -82,6 +83,7 @@ def create_stat_card(
         trend_positive: Si la tendencia es positiva (verde) o negativa (roja)
         width: Ancho personalizado
         on_click: Función al hacer clic
+        icon_label: Etiqueta de texto para el ícono (opcional)
 
     Returns:
         ft.Container con la tarjeta de estadística
@@ -92,17 +94,31 @@ def create_stat_card(
         ...     value="S/. 12,450",
         ...     icon=ft.Icons.ATTACH_MONEY,
         ...     color=Theme.SUCCESS,
-        ...     trend="+12%"
+        ...     trend="+12%",
+        ...     icon_label="INGRESOS"
         ... )
     """
     stat_color = color or Theme.PRIMARY
+
+    # Construir contenido del icono con etiqueta opcional
+    icon_content = ft.Column([
+        ft.Icon(icon, size=Theme.ICON_SIZE["lg"], color=stat_color),
+        ft.Text(
+            icon_label,
+            size=Theme.FONT_SIZE["xs"],
+            color=stat_color,
+            weight=Theme.FONT_WEIGHT["bold"],
+            text_align=ft.TextAlign.CENTER,
+            visible=icon_label is not None
+        ) if icon_label else ft.Container(),
+    ], spacing=Theme.SPACING["xs"], horizontal_alignment=ft.CrossAxisAlignment.CENTER, tight=True)
 
     # Construir contenido
     content_controls = [
         # Fila superior: Ícono + Título
         ft.Row([
             ft.Container(
-                content=ft.Icon(icon, size=Theme.ICON_SIZE["lg"], color=stat_color),
+                content=icon_content,
                 bgcolor=f"{stat_color}22",
                 border_radius=Theme.RADIUS["md"],
                 padding=Theme.SPACING["md"],

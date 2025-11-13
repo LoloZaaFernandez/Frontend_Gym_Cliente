@@ -11,6 +11,7 @@ from ui.layouts import create_base_layout
 from ui.components.atoms import create_primary_button, create_outlined_button
 from ui.components.molecules import create_card_container, create_stat_card
 from ui.utils.messages import mostrar_exito, mostrar_error
+from ui.utils.datetime_utils import parse_datetime_from_api, format_datetime_display, get_now_local
 
 
 def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_section):
@@ -233,10 +234,13 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
                     metodo = pago.get('metodo_pago', 'N/A')
                     fecha = pago.get('fecha_pago', '')
 
-                    # Formatear fecha
+                    # Formatear fecha con conversión de timezone
                     try:
-                        fecha_obj = datetime.fromisoformat(fecha.replace('Z', '+00:00'))
-                        fecha_formateada = fecha_obj.strftime('%d/%m/%Y %H:%M')
+                        fecha_dt = parse_datetime_from_api(fecha)
+                        if fecha_dt:
+                            fecha_formateada = format_datetime_display(fecha_dt)
+                        else:
+                            fecha_formateada = fecha
                     except:
                         fecha_formateada = fecha
 
@@ -398,8 +402,11 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
                 fecha_registro = cliente.get('fecha_registro', '')
 
                 try:
-                    fecha_obj = datetime.fromisoformat(fecha_registro.replace('Z', '+00:00'))
-                    fecha_formateada = fecha_obj.strftime('%d/%m/%Y')
+                    fecha_dt = parse_datetime_from_api(fecha_registro)
+                    if fecha_dt:
+                        fecha_formateada = fecha_dt.strftime('%d/%m/%Y')
+                    else:
+                        fecha_formateada = fecha_registro
                 except:
                     fecha_formateada = fecha_registro
 
@@ -457,8 +464,11 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
                 dias_restantes = cliente.get('dias_restantes', 0)
 
                 try:
-                    fecha_obj = datetime.fromisoformat(fecha_vencimiento.replace('Z', '+00:00'))
-                    fecha_formateada = fecha_obj.strftime('%d/%m/%Y')
+                    fecha_dt = parse_datetime_from_api(fecha_vencimiento)
+                    if fecha_dt:
+                        fecha_formateada = fecha_dt.strftime('%d/%m/%Y')
+                    else:
+                        fecha_formateada = fecha_vencimiento
                 except:
                     fecha_formateada = fecha_vencimiento
 
@@ -524,8 +534,11 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
                 dias_vencidos = cliente.get('dias_vencidos', 0)
 
                 try:
-                    fecha_obj = datetime.fromisoformat(fecha_vencimiento.replace('Z', '+00:00'))
-                    fecha_formateada = fecha_obj.strftime('%d/%m/%Y')
+                    fecha_dt = parse_datetime_from_api(fecha_vencimiento)
+                    if fecha_dt:
+                        fecha_formateada = fecha_dt.strftime('%d/%m/%Y')
+                    else:
+                        fecha_formateada = fecha_vencimiento
                 except:
                     fecha_formateada = fecha_vencimiento
 
@@ -612,8 +625,11 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
                     cantidad = dia_data.get('cantidad', 0)
 
                     try:
-                        fecha_obj = datetime.fromisoformat(fecha.replace('Z', '+00:00'))
-                        fecha_formateada = fecha_obj.strftime('%d/%m/%Y - %A')
+                        fecha_dt = parse_datetime_from_api(fecha)
+                        if fecha_dt:
+                            fecha_formateada = fecha_dt.strftime('%d/%m/%Y - %A')
+                        else:
+                            fecha_formateada = fecha
                     except:
                         fecha_formateada = fecha
 

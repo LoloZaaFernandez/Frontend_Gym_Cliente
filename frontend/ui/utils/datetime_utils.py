@@ -1,22 +1,30 @@
 """
-Utilidades para manejo de fechas y horas con zona horaria de Perú (UTC-5)
-SIMPLIFICADO: El backend envía hora en UTC, nosotros mostramos en hora local de Perú
+Utilidades para manejo de fechas y horas con detección automática de zona horaria
+El sistema detecta automáticamente la zona horaria del sistema operativo
 """
 
-from datetime import datetime, timedelta, timezone
-
-# Zona horaria de Perú (UTC-5)
-PERU_TZ = timezone(timedelta(hours=-5))
+from datetime import datetime, timezone
 
 
-def get_now_peru() -> datetime:
+def get_local_tz():
     """
-    Obtener la fecha y hora actual en la zona horaria de Perú (UTC-5)
+    Obtener la zona horaria local del sistema operativo
 
     Returns:
-        datetime: Datetime actual en Perú con timezone info
+        timezone: Zona horaria local del sistema
     """
-    return datetime.now(PERU_TZ)
+    # Obtener la zona horaria local del sistema automáticamente
+    return datetime.now().astimezone().tzinfo
+
+
+def get_now_local() -> datetime:
+    """
+    Obtener la fecha y hora actual en la zona horaria local del sistema
+
+    Returns:
+        datetime: Datetime actual en zona horaria local con timezone info
+    """
+    return datetime.now().astimezone()
 
 
 def parse_datetime_from_api(datetime_str: str) -> datetime:
@@ -31,13 +39,14 @@ def parse_datetime_from_api(datetime_str: str) -> datetime:
         datetime_str: String con fecha/hora del backend
 
     Returns:
-        datetime: Objeto datetime en zona horaria de Perú, o None si falla
+        datetime: Objeto datetime en zona horaria local del sistema, o None si falla
     """
     if not datetime_str:
         return None
 
     try:
         datetime_str = str(datetime_str).strip()
+        local_tz = get_local_tz()
 
         # Si tiene formato ISO completo con fecha
         if 'T' in datetime_str or '-' in datetime_str:
@@ -51,9 +60,9 @@ def parse_datetime_from_api(datetime_str: str) -> datetime:
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
 
-            # Convertir a hora de Perú
-            dt_peru = dt.astimezone(PERU_TZ)
-            return dt_peru
+            # Convertir a hora local del sistema
+            dt_local = dt.astimezone(local_tz)
+            return dt_local
 
         # Si es solo hora (HH:MM:SS o HH:MM:SS.mmmmmm)
         elif ':' in datetime_str:
@@ -67,9 +76,9 @@ def parse_datetime_from_api(datetime_str: str) -> datetime:
             now_utc = datetime.now(timezone.utc)
             dt_utc = now_utc.replace(hour=hour, minute=minute, second=second, microsecond=0)
 
-            # Convertir a Perú
-            dt_peru = dt_utc.astimezone(PERU_TZ)
-            return dt_peru
+            # Convertir a hora local del sistema
+            dt_local = dt_utc.astimezone(local_tz)
+            return dt_local
 
         return None
 
@@ -147,9 +156,9 @@ def format_header_time() -> str:
     Formatear hora para el header (HH:MM)
 
     Returns:
-        str: Hora actual en Perú formateada
+        str: Hora actual en zona horaria local formateada
     """
-    return get_now_peru().strftime("%H:%M")
+    return get_now_local().strftime("%H:%M")
 
 
 def format_header_date() -> str:
@@ -157,6 +166,6 @@ def format_header_date() -> str:
     Formatear fecha para el header (DD/MM/YYYY)
 
     Returns:
-        str: Fecha actual en Perú formateada
+        str: Fecha actual en zona horaria local formateada
     """
-    return get_now_peru().strftime("%d/%m/%Y")
+    return get_now_local().strftime("%d/%m/%Y")

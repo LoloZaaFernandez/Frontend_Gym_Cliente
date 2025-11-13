@@ -33,6 +33,32 @@ class APIService:
             elif response.status_code == 400:
                 error_detail = response.json().get('detail', 'Error de validación')
                 raise ValueError(error_detail)
+            elif response.status_code == 422:
+                # Error de validación - mostrar detalles completos
+                try:
+                    error_data = response.json()
+                    print(f"DEBUG API: Error 422 completo: {error_data}")
+
+                    # FastAPI devuelve errores de validación en este formato
+                    if 'detail' in error_data:
+                        if isinstance(error_data['detail'], list):
+                            # Lista de errores de validación
+                            errores = []
+                            for err in error_data['detail']:
+                                campo = " -> ".join(str(x) for x in err.get('loc', []))
+                                mensaje = err.get('msg', 'Error de validación')
+                                tipo = err.get('type', '')
+                                errores.append(f"{campo}: {mensaje} ({tipo})")
+                            raise ValueError(f"Errores de validación:\n" + "\n".join(errores))
+                        else:
+                            # Detalle simple
+                            raise ValueError(f"Error de validación: {error_data['detail']}")
+                    else:
+                        raise ValueError(f"Error de validación (422): {error_data}")
+                except ValueError:
+                    raise
+                except Exception:
+                    raise ValueError(f"Error de validación en el servidor (422). Verifica los datos enviados.")
             elif response.status_code == 500:
                 # Error del servidor - mostrar detalles si están disponibles
                 try:
@@ -157,28 +183,32 @@ class APIService:
             return []
 
     def get_asistencias_hoy(self) -> List[Dict[str, Any]]:
-        """Obtener asistencias del día actual (Perú UTC-5)
+        """Obtener asistencias del día actual (zona horaria local del sistema)
 
-        IMPORTANTE: El backend guarda con fecha UTC, así que si son las 19:00-23:59 en Perú,
-        la fecha UTC ya es el día siguiente. Por eso buscamos asistencias que fueron creadas
-        en las últimas 24 horas y las filtramos por fecha de Perú.
+        IMPORTANTE: El backend guarda con fecha UTC, así que dependiendo de la hora local,
+        la fecha UTC puede ser diferente. Por eso buscamos asistencias que fueron creadas
+        en las últimas 24 horas y las filtramos por fecha local.
         """
         from datetime import datetime, timezone, timedelta
 
-        # Zona horaria de Perú (UTC-5)
-        peru_tz = timezone(timedelta(hours=-5))
-        ahora_peru = datetime.now(peru_tz)
-        fecha_hoy_peru = ahora_peru.strftime("%Y-%m-%d")
+        # Zona horaria local del sistema
+        ahora_local = datetime.now().astimezone()
+        local_tz = ahora_local.tzinfo
+        fecha_hoy_local = ahora_local.strftime("%Y-%m-%d")
 
         # Como el backend guarda en UTC, la fecha puede ser hoy o mañana en UTC
-        # dependiendo de la hora en Perú
+        # dependiendo de la hora local
         ahora_utc = datetime.now(timezone.utc)
         fecha_hoy_utc = ahora_utc.strftime("%Y-%m-%d")
         fecha_manana_utc = (ahora_utc + timedelta(days=1)).strftime("%Y-%m-%d")
 
-        print(f"DEBUG API: Fecha HOY en Perú (UTC-5): {fecha_hoy_peru}")
+        # Obtener offset de la zona horaria local en horas
+        offset_seconds = ahora_local.utcoffset().total_seconds()
+        offset_hours = int(offset_seconds / 3600)
+
+        print(f"DEBUG API: Fecha HOY en zona local (UTC{offset_hours:+d}): {fecha_hoy_local}")
         print(f"DEBUG API: Fecha en UTC: {fecha_hoy_utc}")
-        print(f"DEBUG API: Hora actual Perú: {ahora_peru.strftime('%H:%M:%S')}")
+        print(f"DEBUG API: Hora actual local: {ahora_local.strftime('%H:%M:%S')}")
         print(f"DEBUG API: Hora actual UTC: {ahora_utc.strftime('%H:%M:%S')}")
 
         # Obtener todas las asistencias de hoy (en todas las zonas horarias posibles)
@@ -188,13 +218,15 @@ class APIService:
         asist_hoy = self.get_asistencias(fecha_inicio=fecha_hoy_utc, fecha_fin=fecha_hoy_utc)
         todas_asistencias.extend(asist_hoy)
 
-        # Si la fecha UTC es diferente a la de Perú, también buscar en esa fecha
-        if fecha_hoy_utc != fecha_hoy_peru:
-            asist_ayer = self.get_asistencias(fecha_inicio=fecha_hoy_peru, fecha_fin=fecha_hoy_peru)
+        # Si la fecha UTC es diferente a la fecha local, también buscar en esa fecha
+        if fecha_hoy_utc != fecha_hoy_local:
+            asist_ayer = self.get_asistencias(fecha_inicio=fecha_hoy_local, fecha_fin=fecha_hoy_local)
             todas_asistencias.extend(asist_ayer)
 
-        # Si estamos después de las 19:00 en Perú (00:00 UTC del día siguiente)
-        if ahora_peru.hour >= 19:
+        # Si la zona horaria local tiene offset negativo y es tarde en el día,
+        # podríamos necesitar buscar también en el día siguiente UTC
+        # Esto ocurre con zonas UTC-X (como Perú UTC-5, etc.)
+        if offset_hours < 0 and ahora_local.hour >= (24 + offset_hours):
             asist_manana = self.get_asistencias(fecha_inicio=fecha_manana_utc, fecha_fin=fecha_manana_utc)
             todas_asistencias.extend(asist_manana)
 
@@ -387,7 +419,7 @@ class APIService:
         """Actualizar un producto"""
         url = f"{self.base_url}/api/productos/{producto_id}"
         try:
-            response = self.session.put(url, json=data, timeout=self.timeout)
+            response = self.session.patch(url, json=data, timeout=self.timeout)
             return self._handle_response(response)
         except Exception as e:
             raise ValueError(f"Error al actualizar producto: {str(e)}")
@@ -426,6 +458,37 @@ class APIService:
         except Exception as e:
             raise ValueError(f"Error al crear categoría: {str(e)}")
 
+    def actualizar_categoria(self, categoria_id: int, nombre: str, descripcion: str = "") -> Dict[str, Any]:
+        """Actualizar categoría existente"""
+        url = f"{self.base_url}/api/productos/categorias/{categoria_id}"
+        data = {"nombre": nombre, "descripcion": descripcion}
+        try:
+            response = self.session.patch(url, json=data, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al actualizar categoría: {str(e)}")
+
+    def eliminar_categoria(self, categoria_id: int) -> Dict[str, Any]:
+        """Eliminar categoría de producto"""
+        url = f"{self.base_url}/api/productos/categorias/{categoria_id}"
+        try:
+            response = self.session.delete(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al eliminar categoría: {str(e)}")
+
+    def get_categoria_por_nombre(self, nombre: str) -> Optional[Dict[str, Any]]:
+        """Buscar categoría por nombre"""
+        try:
+            categorias = self.get_categorias()
+            for cat in categorias:
+                if cat.get('nombre', '').lower() == nombre.lower():
+                    return cat
+            return None
+        except Exception as e:
+            print(f"Error al buscar categoría por nombre: {e}")
+            return None
+
     # Inventario
     def get_stock_producto(self, producto_id: int) -> Dict[str, Any]:
         """Obtener stock actual de un producto"""
@@ -446,20 +509,329 @@ class APIService:
         except Exception as e:
             raise ValueError(f"Error al registrar movimiento: {str(e)}")
 
+    # ==================== PRODUCTOS - BÚSQUEDAS ESPECIALES ====================
+
+    def get_producto_por_sku(self, sku: str) -> Optional[Dict[str, Any]]:
+        """Obtener producto por SKU - GET /api/productos/sku/{sku}"""
+        url = f"{self.base_url}/api/productos/sku/{sku}"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener producto por SKU: {e}")
+            return None
+
+    def get_producto_por_codigo_barras(self, codigo: str) -> Optional[Dict[str, Any]]:
+        """Obtener producto por código de barras - GET /api/productos/codigo-barras/{codigo}"""
+        url = f"{self.base_url}/api/productos/codigo-barras/{codigo}"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener producto por código de barras: {e}")
+            return None
+
+    def get_producto_por_nombre(self, nombre: str) -> Optional[Dict[str, Any]]:
+        """Obtener producto por nombre exacto - GET /api/productos/nombre/{nombre}"""
+        url = f"{self.base_url}/api/productos/nombre/{nombre}"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener producto por nombre: {e}")
+            return None
+
+    # ==================== INVENTARIO AVANZADO ====================
+
+    def registrar_entrada_inventario(self, producto_id: int, cantidad: int,
+                                     costo_unitario: Optional[float] = None,
+                                     lote: Optional[str] = None,
+                                     fecha_vencimiento: Optional[str] = None,
+                                     motivo: Optional[str] = None) -> Dict[str, Any]:
+        """Registrar entrada de inventario - POST /api/productos/{producto_id}/inventario/entrada"""
+        url = f"{self.base_url}/api/productos/{producto_id}/inventario/entrada"
+        params = {"cantidad": cantidad}
+        if costo_unitario is not None:
+            params["costo_unitario"] = costo_unitario
+        if lote:
+            params["lote"] = lote
+        if fecha_vencimiento:
+            params["fecha_vencimiento"] = fecha_vencimiento
+        if motivo:
+            params["motivo"] = motivo
+
+        try:
+            response = self.session.post(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al registrar entrada: {str(e)}")
+
+    def registrar_salida_inventario(self, producto_id: int, cantidad: int, motivo: str) -> Dict[str, Any]:
+        """Registrar salida de inventario - POST /api/productos/{producto_id}/inventario/salida"""
+        url = f"{self.base_url}/api/productos/{producto_id}/inventario/salida"
+        params = {"cantidad": cantidad, "motivo": motivo}
+
+        try:
+            response = self.session.post(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al registrar salida: {str(e)}")
+
+    def ajustar_inventario(self, producto_id: int, stock_nuevo: int, motivo: str) -> Dict[str, Any]:
+        """Ajustar inventario a un valor específico - POST /api/productos/{producto_id}/inventario/ajuste"""
+        url = f"{self.base_url}/api/productos/{producto_id}/inventario/ajuste"
+        params = {"stock_nuevo": stock_nuevo, "motivo": motivo}
+
+        try:
+            print(f"DEBUG: Enviando ajuste con params={params}")
+            response = self.session.post(url, params=params, timeout=self.timeout)
+            print(f"DEBUG: Response status={response.status_code}")
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al ajustar inventario: {str(e)}")
+
+    def registrar_merma(self, producto_id: int, cantidad: int, motivo: str) -> Dict[str, Any]:
+        """Registrar merma (producto perdido/dañado/vencido) - POST /api/productos/{producto_id}/inventario/merma"""
+        url = f"{self.base_url}/api/productos/{producto_id}/inventario/merma"
+        params = {"cantidad": cantidad, "motivo": motivo}
+
+        try:
+            print(f"DEBUG: Enviando merma con params={params}")
+            response = self.session.post(url, params=params, timeout=self.timeout)
+            print(f"DEBUG: Response status={response.status_code}")
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al registrar merma: {str(e)}")
+
+    def get_movimientos_inventario(self, producto_id: int,
+                                   tipo_movimiento: Optional[str] = None,
+                                   fecha_desde: Optional[str] = None,
+                                   fecha_hasta: Optional[str] = None,
+                                   skip: int = 0,
+                                   limit: int = 100) -> List[Dict[str, Any]]:
+        """Ver movimientos de inventario - GET /api/productos/{producto_id}/inventario/movimientos"""
+        url = f"{self.base_url}/api/productos/{producto_id}/inventario/movimientos"
+        params = {"skip": skip, "limit": limit}
+        if tipo_movimiento:
+            params["tipo_movimiento"] = tipo_movimiento
+        if fecha_desde:
+            params["fecha_desde"] = fecha_desde
+        if fecha_hasta:
+            params["fecha_hasta"] = fecha_hasta
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener movimientos: {e}")
+            return []
+
+    # ==================== ALERTAS Y REPORTES ====================
+
+    def get_productos_stock_bajo(self) -> List[Dict[str, Any]]:
+        """Productos con stock bajo - GET /api/productos/inventario/alertas"""
+        url = f"{self.base_url}/api/productos/inventario/alertas"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener productos con stock bajo: {e}")
+            return []
+
+    def get_productos_proximos_vencer(self, dias: int = 30) -> List[Dict[str, Any]]:
+        """Productos próximos a vencer - GET /api/productos/inventario/proximos-vencer"""
+        url = f"{self.base_url}/api/productos/inventario/proximos-vencer"
+        params = {"dias": dias}
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener productos próximos a vencer: {e}")
+            return []
+
+    def get_productos_sin_stock(self) -> List[Dict[str, Any]]:
+        """Productos sin stock - GET /api/productos/inventario/sin-stock"""
+        url = f"{self.base_url}/api/productos/inventario/sin-stock"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener productos sin stock: {e}")
+            return []
+
+    # ==================== ESTADÍSTICAS ====================
+
+    def get_estadisticas_productos(self) -> Dict[str, Any]:
+        """Estadísticas generales de productos - GET /api/productos/estadisticas/resumen"""
+        url = f"{self.base_url}/api/productos/estadisticas/resumen"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener estadísticas: {e}")
+            return {
+                "total_productos": 0,
+                "productos_activos": 0,
+                "productos_con_stock_bajo": 0,
+                "valor_total_inventario": 0,
+                "valor_total_venta": 0
+            }
+
+    def get_estadisticas_por_categoria(self) -> List[Dict[str, Any]]:
+        """Estadísticas por categoría - GET /api/productos/estadisticas/por-categoria"""
+        url = f"{self.base_url}/api/productos/estadisticas/por-categoria"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener estadísticas por categoría: {e}")
+            return []
+
+    def get_reporte_valor_inventario(self, categoria_id: Optional[int] = None) -> Dict[str, Any]:
+        """Reporte de valor de inventario - GET /api/productos/reportes/valor-inventario"""
+        url = f"{self.base_url}/api/productos/reportes/valor-inventario"
+        params = {}
+        if categoria_id:
+            params["categoria_id"] = categoria_id
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte de valor: {e}")
+            return {"total_productos": 0, "valor_total_costo": 0, "productos": []}
+
+    def get_productos_por_margen(self) -> List[Dict[str, Any]]:
+        """Productos ordenados por margen de ganancia - GET /api/productos/reportes/margen-ganancia"""
+        url = f"{self.base_url}/api/productos/reportes/margen-ganancia"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener productos por margen: {e}")
+            return []
+
+    # ==================== PRECIOS ====================
+
+    def actualizar_precios(self, producto_id: int,
+                          precio_venta: Optional[float] = None,
+                          precio_costo: Optional[float] = None,
+                          precio_mayorista: Optional[float] = None,
+                          precio_miembro: Optional[float] = None,
+                          motivo: str = "Actualización de precios",
+                          usuario: Optional[str] = None) -> Dict[str, Any]:
+        """Actualizar precios de un producto - PUT /api/productos/{producto_id}/precios"""
+        url = f"{self.base_url}/api/productos/{producto_id}/precios"
+        data = {"motivo": motivo}
+
+        if precio_venta is not None:
+            data["precio_venta"] = precio_venta
+        if precio_costo is not None:
+            data["precio_costo"] = precio_costo
+        if precio_mayorista is not None:
+            data["precio_mayorista"] = precio_mayorista
+        if precio_miembro is not None:
+            data["precio_miembro"] = precio_miembro
+        if usuario:
+            data["usuario"] = usuario
+
+        try:
+            response = self.session.put(url, json=data, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al actualizar precios: {str(e)}")
+
+    def get_historial_precios(self, producto_id: int,
+                             tipo_precio: Optional[str] = None,
+                             skip: int = 0,
+                             limit: int = 50) -> List[Dict[str, Any]]:
+        """Ver historial de cambios de precios - GET /api/productos/{producto_id}/historial-precios"""
+        url = f"{self.base_url}/api/productos/{producto_id}/historial-precios"
+        params = {"skip": skip, "limit": limit}
+        if tipo_precio:
+            params["tipo_precio"] = tipo_precio
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener historial de precios: {e}")
+            return []
+
+    def calcular_precio_producto(self, producto_id: int,
+                                 cantidad: int = 1,
+                                 es_miembro: bool = False,
+                                 aplicar_mayorista: bool = False) -> Dict[str, Any]:
+        """Calcular precio final de un producto - POST /api/productos/{producto_id}/calcular-precio"""
+        url = f"{self.base_url}/api/productos/{producto_id}/calcular-precio"
+        data = {
+            "cantidad": cantidad,
+            "es_miembro": es_miembro,
+            "aplicar_mayorista": aplicar_mayorista
+        }
+
+        try:
+            response = self.session.post(url, json=data, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al calcular precio: {str(e)}")
+
     # ==================== VENTAS (POS) ====================
 
-    def crear_venta(self, items: List[Dict[str, Any]], cliente_id: Optional[int] = None) -> Dict[str, Any]:
+    def crear_venta(self, items: List[Dict[str, Any]], cliente_id: Optional[int] = None,
+                    metodo_pago: str = "Efectivo") -> Dict[str, Any]:
         """Crear una venta (desde POS)"""
         url = f"{self.base_url}/api/ventas"
         data = {
             "cliente_id": cliente_id,
-            "items": items
+            "items": items,
+            "metodo_pago": metodo_pago
         }
         try:
             response = self.session.post(url, json=data, timeout=self.timeout)
             return self._handle_response(response)
         except Exception as e:
             raise ValueError(f"Error al crear venta: {str(e)}")
+
+    def get_ventas(self, fecha_inicio: Optional[str] = None, fecha_fin: Optional[str] = None,
+                   metodo_pago: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Obtener ventas con filtros"""
+        url = f"{self.base_url}/api/ventas"
+        params = {}
+        if fecha_inicio:
+            params['fecha_inicio'] = fecha_inicio
+        if fecha_fin:
+            params['fecha_fin'] = fecha_fin
+        if metodo_pago:
+            params['metodo_pago'] = metodo_pago
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener ventas: {e}")
+            return []
+
+    def get_reporte_ventas(self, fecha_inicio: Optional[str] = None, fecha_fin: Optional[str] = None) -> Dict[str, Any]:
+        """Obtener reporte de ventas con totales por método de pago"""
+        url = f"{self.base_url}/api/ventas/reporte"
+        params = {}
+        if fecha_inicio:
+            params['fecha_inicio'] = fecha_inicio
+        if fecha_fin:
+            params['fecha_fin'] = fecha_fin
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte de ventas: {e}")
+            return {
+                "total_ventas": 0,
+                "total_efectivo": 0,
+                "total_yape": 0,
+                "productos_vendidos": []
+            }
 
     # ==================== REPORTES ====================
 

@@ -9,6 +9,7 @@ from config.theme import Theme
 from services.api_service import APIService
 from ui.layouts import create_base_layout
 from ui.components.molecules import create_card_container, create_empty_state
+from ui.utils.datetime_utils import parse_datetime_from_api, format_time_display
 
 
 def show_cliente_asistencias_view(page: ft.Page, auth_service, on_section_click, current_section):
@@ -60,29 +61,81 @@ def show_cliente_asistencias_view(page: ft.Page, auth_service, on_section_click,
         nonlocal stats
 
         try:
-            # Obtener estadísticas
-            stats = api.get_estadisticas_cliente(cliente_id)
+            # Obtener estadísticas (para los contadores)
+            stats_api = api.get_estadisticas_cliente(cliente_id)
+
+            # Obtener TODAS las asistencias del cliente (para el historial completo)
+            asistencias_completas = api.get_asistencias_cliente(cliente_id)
+
+            # Calcular última asistencia desde la lista completa (con fecha + hora)
+            ultima_asistencia_fecha = None
+            if asistencias_completas and len(asistencias_completas) > 0:
+                # Ordenar por fecha descendente para obtener la más reciente
+                asistencias_ordenadas = sorted(
+                    asistencias_completas,
+                    key=lambda x: x.get('fecha_asistencia', ''),
+                    reverse=True
+                )
+                if asistencias_ordenadas:
+                    ultima_asist = asistencias_ordenadas[0]
+                    fecha_asistencia = ultima_asist.get('fecha_asistencia', '')
+                    hora_ingreso = ultima_asist.get('hora_ingreso', '')
+
+                    # Combinar fecha + hora como en clientes_view.py para conversión correcta de timezone
+                    if fecha_asistencia and hora_ingreso:
+                        hora_limpia = str(hora_ingreso).split('.')[0] if '.' in str(hora_ingreso) else str(hora_ingreso)
+                        if 'T' in str(hora_ingreso):
+                            ultima_asistencia_fecha = hora_ingreso
+                        else:
+                            ultima_asistencia_fecha = f"{fecha_asistencia}T{hora_limpia}"
+                    elif fecha_asistencia:
+                        ultima_asistencia_fecha = fecha_asistencia
+
+            # Combinar estadísticas con la lista completa de asistencias
+            stats = {
+                'total_asistencias': len(asistencias_completas) if asistencias_completas else stats_api.get('total_asistencias', 0),
+                'asistencias_mes_actual': stats_api.get('asistencias_mes_actual', 0),
+                'ultima_asistencia': ultima_asistencia_fecha or stats_api.get('ultima_asistencia'),
+                'asistencias_recientes': asistencias_completas  # ✅ Lista completa
+            }
+
+            print(f"DEBUG: Estadísticas obtenidas:")
+            print(f"  Total asistencias: {stats['total_asistencias']}")
+            print(f"  Asistencias este mes: {stats['asistencias_mes_actual']}")
+            print(f"  Asistencias en lista: {len(stats['asistencias_recientes'])}")
+            print(f"  Última asistencia calculada: {stats['ultima_asistencia']}")
 
             # Actualizar textos de estadísticas
             total_text.value = str(stats.get('total_asistencias', 0))
             mes_text.value = str(stats.get('asistencias_mes_actual', 0))
 
-            # Última asistencia
+            # Última asistencia - ahora calculada desde la lista con conversión de timezone
             ultima = stats.get('ultima_asistencia')
             if ultima:
                 try:
-                    fecha_dt = datetime.fromisoformat(ultima)
-                    ultima_text.value = fecha_dt.strftime("%d/%m/%Y")
-                except:
-                    ultima_text.value = ultima
+                    # Usar parse_datetime_from_api para convertir de UTC a hora local
+                    fecha_dt = parse_datetime_from_api(ultima)
+                    if fecha_dt:
+                        ultima_text.value = fecha_dt.strftime("%d/%m/%Y")
+                        print(f"  Última asistencia formateada: {ultima_text.value}")
+                    else:
+                        # Fallback si parse_datetime_from_api falla
+                        ultima_text.value = str(ultima)[:10]
+                        print(f"  Fallback - usando fecha directa: {ultima_text.value}")
+                except Exception as e:
+                    print(f"  Error formateando fecha: {e}")
+                    ultima_text.value = str(ultima)[:10]  # Tomar solo la fecha
             else:
                 ultima_text.value = "Sin registros"
+                print(f"  No hay última asistencia")
 
             # Actualizar lista de asistencias
             actualizar_lista_asistencias()
 
         except Exception as e:
             print(f"Error al cargar datos: {e}")
+            import traceback
+            traceback.print_exc()
             mostrar_mensaje("Error al cargar datos", error=True)
 
         page.update()
@@ -92,6 +145,8 @@ def show_cliente_asistencias_view(page: ft.Page, auth_service, on_section_click,
         asistencias_list.controls.clear()
 
         asistencias = stats.get('asistencias_recientes', [])
+
+        print(f"DEBUG actualizar_lista_asistencias: {len(asistencias)} asistencias para mostrar")
 
         if not asistencias:
             asistencias_list.controls.append(
@@ -107,15 +162,48 @@ def show_cliente_asistencias_view(page: ft.Page, auth_service, on_section_click,
 
     def crear_asistencia_card(asistencia):
         """Crear tarjeta de asistencia"""
-        # Formatear fecha y hora
-        fecha = asistencia.get('fecha_asistencia', '')
-        hora = asistencia.get('hora_ingreso', '')[:8]  # Solo HH:MM:SS
+        # Formatear fecha y hora con conversión correcta de UTC a hora local
+        fecha_asistencia = asistencia.get('fecha_asistencia', '')
+        hora_ingreso = asistencia.get('hora_ingreso', '')
 
-        try:
-            fecha_dt = datetime.fromisoformat(fecha)
-            fecha_formatted = fecha_dt.strftime("%d %b %Y")
-        except:
-            fecha_formatted = fecha
+        fecha_formatted = fecha_asistencia
+        hora_formatted = "--:--"
+
+        # Parsear fecha y hora correctamente
+        if hora_ingreso and fecha_asistencia:
+            try:
+                # Limpiar la hora si tiene microsegundos
+                hora_limpia = str(hora_ingreso).split('.')[0] if '.' in str(hora_ingreso) else str(hora_ingreso)
+
+                # Si la hora ya tiene formato ISO completo, usarla directamente
+                if 'T' in str(hora_ingreso):
+                    datetime_str = hora_ingreso
+                else:
+                    # Combinar fecha + hora en formato ISO para parsear correctamente
+                    datetime_str = f"{fecha_asistencia}T{hora_limpia}"
+
+                # Parsear con la función que convierte UTC a hora local
+                dt = parse_datetime_from_api(datetime_str)
+                if dt:
+                    fecha_formatted = dt.strftime("%d %b %Y")
+                    hora_formatted = format_time_display(dt)
+            except Exception as e:
+                print(f"Error parseando fecha/hora en card: {e}")
+                # Fallback
+                try:
+                    fecha_dt = datetime.fromisoformat(fecha_asistencia)
+                    fecha_formatted = fecha_dt.strftime("%d %b %Y")
+                except:
+                    fecha_formatted = fecha_asistencia
+                hora_formatted = str(hora_ingreso)[:8] if hora_ingreso else "--:--"
+        elif fecha_asistencia:
+            try:
+                fecha_dt = datetime.fromisoformat(fecha_asistencia)
+                fecha_formatted = fecha_dt.strftime("%d %b %Y")
+            except:
+                fecha_formatted = fecha_asistencia
+
+        hora = hora_formatted
 
         return ft.Container(
             content=ft.Row(
@@ -132,15 +220,15 @@ def show_cliente_asistencias_view(page: ft.Page, auth_service, on_section_click,
                                 fecha_formatted,
                                 size=16,
                                 weight=ft.FontWeight.BOLD,
-                                color=TEXT_PRIMARY
+                                color=Theme.TEXT_PRIMARY
                             ),
                             ft.Row(
                                 controls=[
-                                    ft.Icon(ft.Icons.ACCESS_TIME, size=14, color=TEXT_SECONDARY),
+                                    ft.Icon(ft.Icons.ACCESS_TIME, size=14, color=Theme.TEXT_SECONDARY),
                                     ft.Text(
                                         f"Hora de ingreso: {hora}",
                                         size=13,
-                                        color=TEXT_SECONDARY
+                                        color=Theme.TEXT_SECONDARY
                                     ),
                                 ],
                                 spacing=5
@@ -150,7 +238,7 @@ def show_cliente_asistencias_view(page: ft.Page, auth_service, on_section_click,
                         expand=True
                     ),
                     ft.Container(
-                        content=ft.Icon(ft.Icons.FITNESS_CENTER, size=24, color=PRIMARY_COLOR),
+                        content=ft.Icon(ft.Icons.FITNESS_CENTER, size=24, color=Theme.PRIMARY),
                         padding=8
                     )
                 ],
@@ -167,7 +255,7 @@ def show_cliente_asistencias_view(page: ft.Page, auth_service, on_section_click,
     def hover_effect(e):
         """Efecto hover en cards"""
         if e.data == "true":
-            e.control.border = ft.border.all(1, PRIMARY_COLOR)
+            e.control.border = ft.border.all(1, Theme.PRIMARY)
         else:
             e.control.border = ft.border.all(1, "#333333")
         e.control.update()

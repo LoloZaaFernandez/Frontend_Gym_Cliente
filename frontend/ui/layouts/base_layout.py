@@ -110,6 +110,7 @@ def _create_sidebar(role: str, current_section: str, on_section_click):
             {"text": "Asistencia", "icon": ft.Icons.DIRECTIONS_RUN, "section": "Asistencia"},
             {"text": "Punto de Venta", "icon": ft.Icons.SHOPPING_CART, "section": "POS"},
             {"text": "Productos", "icon": ft.Icons.INVENTORY_2, "section": "Productos"},
+            {"text": "Alertas Inventario", "icon": ft.Icons.NOTIFICATIONS_ACTIVE, "section": "Alertas"},
             {"text": "Reportes", "icon": ft.Icons.ANALYTICS, "section": "Reportes"},
             {"text": "Finanzas", "icon": ft.Icons.ATTACH_MONEY, "section": "Finanzas"},
         ]
@@ -123,14 +124,10 @@ def _create_sidebar(role: str, current_section: str, on_section_click):
             {"text": "Mi Perfil", "icon": ft.Icons.PERSON, "section": "Mi Perfil"},
             {"text": "Membresías", "icon": ft.Icons.CARD_MEMBERSHIP, "section": "Membresías"},
             {"text": "Asistencias", "icon": ft.Icons.DIRECTIONS_RUN, "section": "Asistencias"},
-            {"text": "Mis Rutinas", "icon": ft.Icons.FITNESS_CENTER, "section": "Rutinas"},
-            {"text": "Pagos", "icon": ft.Icons.PAYMENT, "section": "Pagos"},
-            {"text": "Mi Progreso", "icon": ft.Icons.TRENDING_UP, "section": "Progreso"},
-            {"text": "Horarios", "icon": ft.Icons.SCHEDULE, "section": "Horarios"},
         ]
         footer_items = [
             {"text": "Configuración", "icon": ft.Icons.SETTINGS, "section": "Configuracion"},
-            {"text": "Ayuda", "icon": ft.Icons.HELP, "section": "Soporte"},
+            {"text": "Ayuda", "icon": ft.Icons.HELP, "section": "Ayuda"},
         ]
 
     def create_nav_item(text, icon, section, is_active=False):

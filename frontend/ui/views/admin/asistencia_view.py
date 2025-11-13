@@ -11,7 +11,7 @@ from ui.layouts import create_base_layout
 from ui.components.atoms import create_primary_button, create_outlined_button, create_status_badge, create_icon_button
 from ui.components.molecules import create_card_container, create_stat_card, create_empty_state
 from ui.utils.messages import mostrar_exito, mostrar_error
-from ui.utils.datetime_utils import parse_datetime_from_api, format_datetime_display, format_time_display
+from ui.utils.datetime_utils import parse_datetime_from_api, format_datetime_display, format_time_display, get_now_local
 
 
 def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_section):
@@ -96,9 +96,9 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
             asistencias_filtradas = asistencias_list.copy()
             stats_hoy["total_asistencias"] = len(asistencias_list)
 
-            # Estadísticas del mes
+            # Estadísticas del mes (usando timezone local)
             asistencias_mes = api.get_asistencias_mes()
-            dias_transcurridos = datetime.now().day
+            dias_transcurridos = get_now_local().day
             stats_mes["promedio_diario"] = round(len(asistencias_mes) / dias_transcurridos, 1) if dias_transcurridos > 0 else 0
 
             # Pre-cargar métodos de pago de todos los clientes con asistencias
@@ -211,35 +211,48 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
             hora_ingreso = asistencia.get('hora_ingreso')
             fecha_asistencia = asistencia.get('fecha_asistencia')
 
-            if hora_ingreso:
-                # Si hora_ingreso tiene formato completo ISO con fecha (YYYY-MM-DDTHH:MM:SS)
-                if 'T' in str(hora_ingreso):
+            if hora_ingreso and fecha_asistencia:
+                # CASO 1: Tenemos fecha y hora por separado - combinarlas
+                try:
+                    # Limpiar la hora si tiene microsegundos
+                    hora_limpia = str(hora_ingreso).split('.')[0] if '.' in str(hora_ingreso) else str(hora_ingreso)
+
+                    # Si la hora ya tiene formato ISO completo, usarla directamente
+                    if 'T' in str(hora_ingreso):
+                        datetime_str = hora_ingreso
+                    else:
+                        # Combinar fecha + hora en formato ISO
+                        datetime_str = f"{fecha_asistencia}T{hora_limpia}"
+
+                    # Parsear con la función que maneja timezone correctamente
+                    dt = parse_datetime_from_api(datetime_str)
+                    if dt:
+                        hora_str = format_time_display(dt)
+                        fecha_str = dt.strftime("%d/%m/%Y")
+                except Exception as e:
+                    print(f"Error parseando fecha/hora combinada: {e}")
+                    # Fallback: mostrar fecha sin parsear
+                    try:
+                        dt_fecha = datetime.strptime(fecha_asistencia, "%Y-%m-%d")
+                        fecha_str = dt_fecha.strftime("%d/%m/%Y")
+                    except:
+                        fecha_str = fecha_asistencia
+            elif hora_ingreso:
+                # CASO 2: Solo tenemos hora_ingreso (puede ser formato ISO completo)
+                try:
                     dt = parse_datetime_from_api(hora_ingreso)
                     if dt:
                         hora_str = format_time_display(dt)
                         fecha_str = dt.strftime("%d/%m/%Y")
-                else:
-                    # Es solo hora (HH:MM:SS.mmmmmm), combinar con fecha_asistencia
-                    # IMPORTANTE: El backend envía hora en UTC, debemos convertir a Perú
-                    if fecha_asistencia:
-                        # Combinar fecha + hora para parsear correctamente
-                        datetime_str = f"{fecha_asistencia}T{hora_ingreso}"
-                        dt = parse_datetime_from_api(datetime_str)
-                        if dt:
-                            hora_str = format_time_display(dt)
-                            fecha_str = dt.strftime("%d/%m/%Y")
-                    else:
-                        # Solo tenemos hora sin fecha, parsear solo la hora
-                        dt = parse_datetime_from_api(hora_ingreso)
-                        if dt:
-                            hora_str = format_time_display(dt)
-
-            # Si aún no tenemos fecha pero tenemos fecha_asistencia
-            if fecha_asistencia and fecha_str == "--/--/----":
+                except Exception as e:
+                    print(f"Error parseando hora_ingreso: {e}")
+            elif fecha_asistencia:
+                # CASO 3: Solo tenemos fecha_asistencia
                 try:
                     dt = datetime.strptime(fecha_asistencia, "%Y-%m-%d")
                     fecha_str = dt.strftime("%d/%m/%Y")
-                except:
+                except Exception as e:
+                    print(f"Error parseando fecha_asistencia: {e}")
                     fecha_str = fecha_asistencia
 
             # Obtener método de pago del cache (pre-cargado en load_estadisticas)
@@ -433,14 +446,36 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
 
                     # Obtener hora de registro
                     hora_ingreso = asist.get('hora_ingreso')
-                    if hora_ingreso:
-                        if 'T' in str(hora_ingreso):
+                    fecha_asistencia = asist.get('fecha_asistencia')
+
+                    if hora_ingreso and fecha_asistencia:
+                        try:
+                            # Limpiar la hora si tiene microsegundos
+                            hora_limpia = str(hora_ingreso).split('.')[0] if '.' in str(hora_ingreso) else str(hora_ingreso)
+
+                            # Si la hora ya tiene formato ISO completo, usarla directamente
+                            if 'T' in str(hora_ingreso):
+                                datetime_str = hora_ingreso
+                            else:
+                                # Combinar fecha + hora en formato ISO para parsear correctamente
+                                datetime_str = f"{fecha_asistencia}T{hora_limpia}"
+
+                            # Parsear con la función que convierte UTC a hora local
+                            dt = parse_datetime_from_api(datetime_str)
+                            if dt:
+                                hora_registro = format_time_display(dt)
+                        except Exception as e:
+                            print(f"DEBUG: Error parseando hora de registro: {e}")
+                            # Fallback: mostrar la hora sin parsear
+                            hora_registro = str(hora_ingreso)[:8]
+                    elif hora_ingreso:
+                        # Solo tenemos hora_ingreso, intentar parsear
+                        try:
                             dt = parse_datetime_from_api(hora_ingreso)
                             if dt:
                                 hora_registro = format_time_display(dt)
-                        else:
-                            # Es solo hora (HH:MM:SS.mmmmmm)
-                            hora_registro = str(hora_ingreso)[:8]  # HH:MM:SS
+                        except:
+                            hora_registro = str(hora_ingreso)[:8]
 
                     print(f"DEBUG: Hora de registro: {hora_registro}")
                     break
@@ -455,7 +490,7 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
                 try:
                     fecha_venc = parse_datetime_from_api(fecha_membresia)
                     if fecha_venc:
-                        dias_restantes = (fecha_venc.date() - datetime.now().date()).days
+                        dias_restantes = (fecha_venc.date() - get_now_local().date()).days
                         tiene_membresia_activa = dias_restantes >= 0
                 except:
                     pass
@@ -489,11 +524,37 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
                 ]),
             ]
 
-            if ya_registro_hoy:
-                # Usar zona horaria de Perú para mostrar la fecha
-                from datetime import timezone, timedelta
-                peru_tz = timezone(timedelta(hours=-5))
-                fecha_hoy_formateada = datetime.now(peru_tz).strftime("%d/%m/%Y")
+            # Mostrar mensajes de advertencia según el estado
+            if not tiene_membresia_activa:
+                # Mensaje cuando el cliente no tiene membresía activa
+                info_controls.append(
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Row([
+                                ft.Icon(ft.Icons.CANCEL, color=Theme.ERROR, size=24),
+                                ft.Text(
+                                    "⚠️ Cliente sin membresía",
+                                    size=Theme.FONT_SIZE["sm"],
+                                    color=Theme.ERROR,
+                                    weight=Theme.FONT_WEIGHT["bold"]
+                                )
+                            ], spacing=8),
+                            ft.Text(
+                                "Este cliente no tiene una membresía activa. Debe adquirir una membresía para poder registrar asistencia.",
+                                size=Theme.FONT_SIZE["xs"],
+                                color=Theme.TEXT_SECONDARY,
+                                italic=True
+                            )
+                        ], spacing=4),
+                        bgcolor=f"{Theme.ERROR}20",
+                        padding=Theme.SPACING["md"],
+                        border_radius=Theme.RADIUS["md"],
+                        border=ft.border.all(1, Theme.ERROR)
+                    )
+                )
+            elif ya_registro_hoy:
+                # Usar zona horaria local del sistema para mostrar la fecha
+                fecha_hoy_formateada = get_now_local().strftime("%d/%m/%Y")
 
                 mensaje_ya_registrado = f"✓ Asistencia ya registrada hoy ({fecha_hoy_formateada})"
                 if hora_registro:
@@ -546,12 +607,10 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
             cliente_info_container.visible = True
 
             if not tiene_membresia_activa:
-                mostrar_error(page, "⚠️ El cliente no tiene una membresía activa")
+                mostrar_error(page, "⚠️ Cliente sin membresía")
             elif ya_registro_hoy:
-                # Usar zona horaria de Perú para mostrar la fecha
-                from datetime import timezone, timedelta
-                peru_tz = timezone(timedelta(hours=-5))
-                fecha_hoy_formateada = datetime.now(peru_tz).strftime("%d/%m/%Y")
+                # Usar zona horaria local del sistema para mostrar la fecha
+                fecha_hoy_formateada = get_now_local().strftime("%d/%m/%Y")
 
                 if hora_registro:
                     mostrar_error(page, f"⚠️ El cliente ya registró asistencia hoy ({fecha_hoy_formateada}) a las {hora_registro}")

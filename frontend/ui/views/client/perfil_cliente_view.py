@@ -10,6 +10,7 @@ from config.settings import LOGO_PATH
 from ui.layouts import create_base_layout
 from ui.components.molecules import create_card_container
 from services.api_service import APIService
+from ui.utils.datetime_utils import parse_datetime_from_api, get_now_local
 
 
 def show_perfil_cliente_view(page: ft.Page, auth_service, on_section_click, current_section, on_navigate_membresias=None):
@@ -39,6 +40,20 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_section_click, curr
         try:
             cliente_id = cliente.get('id')
 
+            # IMPORTANTE: Obtener datos actualizados del cliente desde la API
+            # Esto asegura que tengamos la información más reciente de la membresía
+            cliente_actualizado = api.get_cliente_por_id(cliente_id)
+            if not cliente_actualizado:
+                cliente_actualizado = cliente  # Fallback al cliente del auth
+
+            # DEBUG: Mostrar TODOS los campos del cliente para ver qué está disponible
+            print(f"\n{'='*60}")
+            print(f"DEBUG PERFIL - CLIENTE ACTUALIZADO (ID: {cliente_id}):")
+            print(f"{'='*60}")
+            for key, value in cliente_actualizado.items():
+                print(f"  {key}: {value}")
+            print(f"{'='*60}\n")
+
             # Obtener estadísticas de asistencias
             stats_asistencias = api.get_estadisticas_cliente(cliente_id)
 
@@ -46,9 +61,9 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_section_click, curr
             asistencias = api.get_asistencias_cliente(cliente_id)
             racha_dias = calcular_racha_dias(asistencias)
 
-            # Obtener información de membresía
+            # Obtener información de membresía desde pagos (método más confiable)
             pagos_membresia = api.get_pagos_membresia_cliente(cliente_id)
-            membresia_info = obtener_info_membresia(pagos_membresia)
+            membresia_info = obtener_info_membresia_desde_pagos(pagos_membresia, cliente_actualizado)
 
             # Formatear fecha de registro
             fecha_registro = cliente.get('fecha_registro', '')
@@ -79,7 +94,8 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_section_click, curr
                 "racha_dias": racha_dias,
                 "membresia_tipo": membresia_info.get('tipo', 'Sin membresía'),
                 "membresia_vencimiento": membresia_info.get('vencimiento', 'N/A'),
-                "membresia_estado": membresia_info.get('estado', 'Inactiva')
+                "membresia_estado": membresia_info.get('estado', 'Inactiva'),
+                "cliente_actualizado": cliente_actualizado  # Retornar también el cliente actualizado
             }
         except Exception as e:
             print(f"Error al obtener datos del cliente: {e}")
@@ -90,7 +106,8 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_section_click, curr
                 "racha_dias": 0,
                 "membresia_tipo": "Sin membresía",
                 "membresia_vencimiento": "N/A",
-                "membresia_estado": "Inactiva"
+                "membresia_estado": "Inactiva",
+                "cliente_actualizado": cliente  # Fallback al cliente original
             }
 
     def calcular_racha_dias(asistencias):
@@ -119,9 +136,9 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_section_click, curr
             if not fechas:
                 return 0
 
-            # Calcular racha
+            # Calcular racha (usando timezone local)
             racha = 1
-            fecha_actual = datetime.now().date()
+            fecha_actual = get_now_local().date()
 
             # Verificar si la última asistencia fue hoy o ayer
             ultima_fecha = datetime.fromisoformat(fechas[0].replace('Z', '+00:00')).date()
@@ -147,64 +164,173 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_section_click, curr
             print(f"Error al calcular racha: {e}")
             return 0
 
-    def obtener_info_membresia(pagos):
-        """Obtener información de la membresía activa"""
-        if not pagos:
-            return {
-                "tipo": "Sin membresía",
-                "vencimiento": "N/A",
-                "estado": "Inactiva"
-            }
-
+    def obtener_info_membresia_desde_pagos(pagos, cliente_data):
+        """
+        Obtener información de membresía desde pagos de membresía
+        Combina información de pagos con campos del cliente para mayor precisión
+        """
         try:
-            # Obtener el pago más reciente
-            pago_reciente = sorted(
-                pagos,
-                key=lambda x: x.get('fecha_pago', ''),
-                reverse=True
-            )[0]
+            print(f"\n{'='*60}")
+            print(f"DEBUG OBTENER_INFO_MEMBRESIA_DESDE_PAGOS:")
+            print(f"  Total pagos recibidos: {len(pagos) if pagos else 0}")
 
-            # Calcular fecha de vencimiento (desde fecha_pago)
-            fecha_pago = pago_reciente.get('fecha_pago', '')
-            tipo_membresia = pago_reciente.get('tipo_membresia', 'Mensual')
+            # OPCIÓN 1: Intentar obtener desde campos del cliente primero
+            tipo_desde_cliente = (
+                cliente_data.get('tipo_membresia') or
+                cliente_data.get('plan_membresia') or
+                cliente_data.get('membresia_tipo') or
+                None
+            )
+            fecha_desde_cliente = (
+                cliente_data.get('fecha_membresia') or
+                cliente_data.get('fecha_vencimiento') or
+                None
+            )
 
-            if fecha_pago:
-                try:
-                    fecha_obj = datetime.fromisoformat(fecha_pago.replace('Z', '+00:00'))
+            print(f"  Campos del cliente:")
+            print(f"    tipo_membresia: '{tipo_desde_cliente}'")
+            print(f"    fecha_membresia: '{fecha_desde_cliente}'")
 
-                    # Calcular vencimiento según tipo
-                    if 'Mensual' in tipo_membresia:
-                        fecha_vencimiento = fecha_obj + timedelta(days=30)
-                    elif 'Trimestral' in tipo_membresia:
-                        fecha_vencimiento = fecha_obj + timedelta(days=90)
-                    elif 'Semestral' in tipo_membresia:
-                        fecha_vencimiento = fecha_obj + timedelta(days=180)
-                    elif 'Anual' in tipo_membresia:
-                        fecha_vencimiento = fecha_obj + timedelta(days=365)
-                    else:
-                        fecha_vencimiento = fecha_obj + timedelta(days=30)
+            # OPCIÓN 2: Si los campos del cliente no están disponibles, usar pagos
+            tipo_desde_pagos = None
+            fecha_desde_pagos = None
 
-                    vencimiento_formateado = fecha_vencimiento.strftime('%d/%m/%Y')
+            if pagos and len(pagos) > 0:
+                # Obtener el pago más reciente
+                pago_reciente = sorted(
+                    pagos,
+                    key=lambda x: x.get('fecha_pago', ''),
+                    reverse=True
+                )[0]
 
-                    # Verificar si está activa
-                    hoy = datetime.now()
-                    estado = "Activa" if fecha_vencimiento > hoy else "Vencida"
+                print(f"\n  Pago más reciente:")
+                for key, value in pago_reciente.items():
+                    print(f"    {key}: {value}")
+
+                tipo_desde_pagos = (
+                    pago_reciente.get('tipo_membresia') or
+                    pago_reciente.get('nombre_membresia') or
+                    pago_reciente.get('plan') or
+                    None
+                )
+
+                # Si no hay tipo pero hay id_membresia, buscar la membresía por ID
+                if not tipo_desde_pagos and pago_reciente.get('id_membresia'):
+                    id_membresia = pago_reciente.get('id_membresia')
+                    print(f"    Buscando membresía con ID: {id_membresia}")
+
+                    try:
+                        # Obtener todas las membresías disponibles
+                        todas_membresias = api.get_membresias()
+                        print(f"    Total membresías disponibles: {len(todas_membresias)}")
+
+                        # Buscar la membresía con el ID específico
+                        for membresia in todas_membresias:
+                            if membresia.get('id') == id_membresia:
+                                tipo_desde_pagos = membresia.get('tipo_membresia') or membresia.get('nombre')
+                                print(f"    ¡Membresía encontrada! Tipo: {tipo_desde_pagos}")
+                                break
+                    except Exception as e:
+                        print(f"    Error al buscar membresía por ID: {e}")
+
+                # Intentar obtener fecha_fin primero, luego calcular desde fecha_pago
+                fecha_desde_pagos = pago_reciente.get('fecha_fin') or pago_reciente.get('fecha_vencimiento')
+
+                if not fecha_desde_pagos and pago_reciente.get('fecha_pago'):
+                    # Calcular vencimiento desde fecha_pago
+                    try:
+                        fecha_pago_str = pago_reciente.get('fecha_pago', '')
+                        fecha_obj = datetime.fromisoformat(fecha_pago_str.replace('Z', '+00:00'))
+
+                        # Calcular vencimiento según tipo
+                        duracion_dias = 30  # Default mensual
+                        if tipo_desde_pagos:
+                            if 'Mensual' in tipo_desde_pagos:
+                                duracion_dias = 30
+                            elif 'Trimestral' in tipo_desde_pagos:
+                                duracion_dias = 90
+                            elif 'Semestral' in tipo_desde_pagos:
+                                duracion_dias = 180
+                            elif 'Anual' in tipo_desde_pagos or 'Año' in tipo_desde_pagos:
+                                duracion_dias = 365
+
+                        fecha_vencimiento = fecha_obj + timedelta(days=duracion_dias)
+                        fecha_desde_pagos = fecha_vencimiento.isoformat()
+                    except Exception as e:
+                        print(f"    Error calculando fecha de vencimiento: {e}")
+
+            print(f"\n  Desde pagos:")
+            print(f"    tipo: '{tipo_desde_pagos}'")
+            print(f"    fecha: '{fecha_desde_pagos}'")
+
+            # DECISIÓN: Usar campos del cliente si existen, sino usar pagos
+            tipo_membresia = tipo_desde_cliente or tipo_desde_pagos
+            fecha_membresia = fecha_desde_cliente or fecha_desde_pagos
+
+            print(f"\n  FINAL:")
+            print(f"    tipo_membresia: '{tipo_membresia}'")
+            print(f"    fecha_membresia: '{fecha_membresia}'")
+            print(f"{'='*60}\n")
+
+            # Si no hay tipo de membresía, el cliente no tiene membresía
+            if not tipo_membresia or tipo_membresia == 'Sin membresía':
+                return {
+                    "tipo": "Sin membresía",
+                    "vencimiento": "N/A",
+                    "estado": "Inactiva"
+                }
+
+            # Si hay tipo pero no fecha de vencimiento
+            if not fecha_membresia:
+                return {
+                    "tipo": tipo_membresia,
+                    "vencimiento": "No disponible",
+                    "estado": "Desconocida"
+                }
+
+            # Parsear fecha de vencimiento
+            try:
+                fecha_venc_dt = parse_datetime_from_api(fecha_membresia)
+
+                if fecha_venc_dt:
+                    vencimiento_formateado = fecha_venc_dt.strftime('%d/%m/%Y')
+
+                    # Verificar si está activa (comparar con fecha actual local)
+                    hoy = get_now_local()
+
+                    # Comparar solo las fechas, sin la hora
+                    estado = "Activa" if fecha_venc_dt.date() >= hoy.date() else "Vencida"
+
+                    print(f"DEBUG Perfil: Estado calculado = {estado}")
 
                     return {
                         "tipo": tipo_membresia,
                         "vencimiento": vencimiento_formateado,
                         "estado": estado
                     }
-                except:
-                    pass
+                else:
+                    # Si no se pudo parsear, intentar como formato simple
+                    fecha_obj = datetime.fromisoformat(fecha_membresia.replace('Z', '+00:00'))
+                    vencimiento_formateado = fecha_obj.strftime('%d/%m/%Y')
 
-            return {
-                "tipo": tipo_membresia,
-                "vencimiento": "No disponible",
-                "estado": "Desconocida"
-            }
+                    hoy = get_now_local()
+                    estado = "Activa" if fecha_obj.date() >= hoy.date() else "Vencida"
+
+                    return {
+                        "tipo": tipo_membresia,
+                        "vencimiento": vencimiento_formateado,
+                        "estado": estado
+                    }
+            except Exception as e:
+                print(f"Error parseando fecha de membresía: {e}")
+                return {
+                    "tipo": tipo_membresia,
+                    "vencimiento": "Error en fecha",
+                    "estado": "Desconocida"
+                }
+
         except Exception as e:
-            print(f"Error al obtener info de membresía: {e}")
+            print(f"Error al obtener info de membresía desde cliente: {e}")
             return {
                 "tipo": "Sin membresía",
                 "vencimiento": "N/A",
@@ -213,6 +339,9 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_section_click, curr
 
     # Obtener datos reales del cliente
     datos_adicionales = obtener_datos_cliente()
+
+    # Usar el cliente actualizado para mostrar información correcta
+    cliente_display = datos_adicionales.get('cliente_actualizado', cliente)
 
     def crear_campo_info(label, valor, icon):
         """Crear campo de información"""
@@ -267,7 +396,7 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_section_click, curr
                 height=120,
                 alignment=ft.alignment.center
             ),
-            ft.Text(f"{cliente['nombre']} {cliente['apellidos']}", size=Theme.FONT_SIZE["xl"],
+            ft.Text(f"{cliente_display['nombre']} {cliente_display['apellidos']}", size=Theme.FONT_SIZE["xl"],
                    weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY,
                    text_align=ft.TextAlign.CENTER),
             ft.Container(
@@ -287,9 +416,9 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_section_click, curr
             ft.Text("Información Personal", size=Theme.FONT_SIZE["lg"],
                    weight=Theme.FONT_WEIGHT["bold"], color=Theme.PRIMARY),
             ft.Divider(height=1, color=Theme.BORDER_DEFAULT),
-            crear_campo_info("DNI", cliente['dni'], ft.Icons.BADGE),
-            crear_campo_info("Correo Electrónico", cliente['correo'], ft.Icons.EMAIL),
-            crear_campo_info("Teléfono", cliente.get('telefono', 'No registrado'), ft.Icons.PHONE),
+            crear_campo_info("DNI", cliente_display['dni'], ft.Icons.BADGE),
+            crear_campo_info("Correo Electrónico", cliente_display['correo'], ft.Icons.EMAIL),
+            crear_campo_info("Teléfono", cliente_display.get('telefono', 'No registrado'), ft.Icons.PHONE),
             crear_campo_info("Fecha de Registro", datos_adicionales['fecha_registro'], ft.Icons.CALENDAR_TODAY),
             crear_campo_info("Última Asistencia", datos_adicionales['fecha_ultima_asistencia'], ft.Icons.ACCESS_TIME),
         ], spacing=Theme.SPACING["lg"]),
@@ -315,6 +444,13 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_section_click, curr
     # Información de membresía
     estado_color = Theme.PRIMARY if datos_adicionales['membresia_estado'] == "Activa" else Theme.ERROR
 
+    # Formatear texto de membresía (evitar "Membresía Sin Membresía")
+    tipo_membresia_display = datos_adicionales['membresia_tipo']
+    if tipo_membresia_display and tipo_membresia_display.lower() in ["sin membresía", "sin membresia"]:
+        texto_membresia = "Sin membresía activa"
+    else:
+        texto_membresia = f"Membresía {tipo_membresia_display}"
+
     info_membresia = create_card_container(
         content=ft.Column([
             ft.Text("Mi Membresía", size=Theme.FONT_SIZE["lg"],
@@ -324,7 +460,7 @@ def show_perfil_cliente_view(page: ft.Page, auth_service, on_section_click, curr
                 content=ft.Row([
                     ft.Icon(ft.Icons.CARD_MEMBERSHIP, size=50, color=Theme.PRIMARY),
                     ft.Column([
-                        ft.Text(f"Membresía {datos_adicionales['membresia_tipo']}",
+                        ft.Text(texto_membresia,
                                size=Theme.FONT_SIZE["md"], weight=Theme.FONT_WEIGHT["bold"],
                                color=Theme.TEXT_PRIMARY),
                         ft.Text(f"Vence: {datos_adicionales['membresia_vencimiento']}",

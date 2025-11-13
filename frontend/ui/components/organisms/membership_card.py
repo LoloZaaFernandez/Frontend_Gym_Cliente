@@ -492,9 +492,20 @@ class MembershipStatusCard:
         fecha_vencimiento: datetime,
         dias_restantes: int,
         nombre_plan: str = "Sin plan",
-        on_renew_click=None
+        on_renew_click=None,
+        dias_transcurridos: int = None,
+        dias_totales: int = None
     ) -> ft.Container:
-        """Crear tarjeta de membresía activa"""
+        """Crear tarjeta de membresía activa
+
+        Args:
+            fecha_vencimiento: Fecha de vencimiento de la membresía
+            dias_restantes: Días que faltan para que venza
+            nombre_plan: Nombre del plan actual
+            on_renew_click: Callback para renovar (deshabilitado si está activa)
+            dias_transcurridos: Días que han pasado desde la compra
+            dias_totales: Total de días de la membresía
+        """
 
         # Determinar color según días restantes
         estado_color = PRIMARY_COLOR if dias_restantes > 7 else "#FF9800" if dias_restantes > 0 else "#EF5350"
@@ -599,11 +610,17 @@ class MembershipStatusCard:
                             border_radius=10
                         ),
 
-                        # Días restantes
+                        # Días restantes y progreso
                         ft.Container(
                             content=ft.Column([
-                                ft.Text("TIEMPO RESTANTE", size=10, color=TEXT_SECONDARY,
-                                       text_align=ft.TextAlign.CENTER),
+                                # Mostrar "Día X de Y" si tenemos los datos válidos
+                                ft.Text(
+                                    f"DÍA {dias_transcurridos + 1} DE {dias_totales}" if (dias_transcurridos is not None and dias_totales is not None and dias_transcurridos >= 0 and dias_totales > 0) else "TIEMPO RESTANTE",
+                                    size=10,
+                                    color=TEXT_SECONDARY,
+                                    text_align=ft.TextAlign.CENTER,
+                                    weight=ft.FontWeight.BOLD
+                                ),
                                 ft.Row([
                                     ft.Icon(
                                         ft.Icons.TIMER if dias_restantes > 0 else ft.Icons.WARNING_AMBER_ROUNDED,
@@ -617,12 +634,24 @@ class MembershipStatusCard:
                                         weight=ft.FontWeight.BOLD
                                     ),
                                     ft.Text(
-                                        "días" if dias_restantes != 1 else "día",
-                                        size=16,
+                                        "días restantes" if dias_restantes != 1 else "día restante",
+                                        size=14,
                                         color=TEXT_SECONDARY,
                                         weight=ft.FontWeight.W_500
                                     )
                                 ], alignment=ft.MainAxisAlignment.CENTER, spacing=8),
+                                # Barra de progreso visual (opcional) con validación
+                                ft.Container(
+                                    content=ft.ProgressBar(
+                                        value=max(0.0, min(1.0, dias_transcurridos / dias_totales)) if dias_transcurridos is not None and dias_totales is not None and dias_totales > 0 else 0.0,
+                                        color=estado_color,
+                                        bgcolor=f"{estado_color}20",
+                                        height=6
+                                    ),
+                                    width=280,
+                                    margin=ft.margin.only(top=8),
+                                    visible=dias_transcurridos is not None and dias_totales is not None and dias_transcurridos >= 0
+                                ) if dias_transcurridos is not None and dias_totales is not None and dias_transcurridos >= 0 else ft.Container()
                             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
                             bgcolor=f"{estado_color}10",
                             padding=15,

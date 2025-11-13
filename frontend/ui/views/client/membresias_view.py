@@ -11,6 +11,7 @@ from config.settings import CARD_BG, TEXT_PRIMARY, TEXT_SECONDARY, PRIMARY_COLOR
 from services.api_service import APIService
 from ui.layouts import create_base_layout
 from ui.components.organisms import MembershipCard, MembershipStatusCard
+from ui.utils.datetime_utils import parse_datetime_from_api, get_now_local
 
 
 def show_membresias_view(page: ft.Page, auth_service, on_section_click, current_section):
@@ -105,34 +106,81 @@ def show_membresias_view(page: ft.Page, auth_service, on_section_click, current_
 
             if fecha_membresia:
                 try:
-                    fecha_venc = datetime.fromisoformat(fecha_membresia)
+                    # Usar parse_datetime_from_api para convertir de UTC a local
+                    fecha_venc_dt = parse_datetime_from_api(fecha_membresia)
+                    if not fecha_venc_dt:
+                        # Fallback al método anterior
+                        fecha_venc_dt = datetime.fromisoformat(fecha_membresia.replace('Z', '+00:00'))
+
+                    # Obtener fecha actual en zona horaria local
+                    fecha_actual_dt = get_now_local()
+
                     # Comparar solo fechas (sin hora) para que venza al final del día
-                    fecha_venc_solo_fecha = fecha_venc.date()
-                    fecha_actual_solo_fecha = datetime.now().date()
+                    fecha_venc_solo_fecha = fecha_venc_dt.date()
+                    fecha_actual_solo_fecha = fecha_actual_dt.date()
                     dias_restantes = (fecha_venc_solo_fecha - fecha_actual_solo_fecha).days
+
+                    # Calcular días transcurridos y totales para mostrar progreso
+                    dias_totales = None
+                    dias_transcurridos = None
+                    if pagos_ordenados and len(pagos_ordenados) > 0:
+                        try:
+                            fecha_inicio_str = pagos_ordenados[0].get('fecha_pago', '')
+                            if fecha_inicio_str:
+                                print(f"DEBUG: Procesando fecha de pago: {fecha_inicio_str}")
+
+                                # Convertir fecha de pago de UTC a local usando la función utilitaria
+                                fecha_inicio_dt = parse_datetime_from_api(fecha_inicio_str)
+                                if not fecha_inicio_dt:
+                                    # Fallback
+                                    fecha_inicio_dt = datetime.fromisoformat(fecha_inicio_str.replace('Z', '+00:00'))
+
+                                fecha_inicio_solo_fecha = fecha_inicio_dt.date()
+
+                                dias_totales = (fecha_venc_solo_fecha - fecha_inicio_solo_fecha).days
+                                dias_transcurridos = (fecha_actual_solo_fecha - fecha_inicio_solo_fecha).days
+
+                                print(f"DEBUG: fecha_inicio={fecha_inicio_solo_fecha}, fecha_actual={fecha_actual_solo_fecha}, fecha_venc={fecha_venc_solo_fecha}")
+                                print(f"DEBUG: dias_totales={dias_totales}, dias_transcurridos={dias_transcurridos}")
+
+                                # Validar que los valores sean positivos
+                                if dias_totales < 0 or dias_transcurridos < 0:
+                                    print(f"ERROR: días negativos detectados - totales:{dias_totales}, transcurridos:{dias_transcurridos}")
+                                    dias_totales = None
+                                    dias_transcurridos = None
+                                else:
+                                    print(f"✅ Días calculados correctamente: Día {dias_transcurridos + 1} de {dias_totales}")
+                        except Exception as e:
+                            print(f"ERROR al procesar fecha: {e}")
+                            import traceback
+                            traceback.print_exc()
+                            dias_totales = None
+                            dias_transcurridos = None
 
                     if dias_restantes >= 0:
                         # Membresía activa
                         estado_membresia["tiene_activa"] = True
                         estado_membresia["dias_restantes"] = dias_restantes
                         estado_membresia["nombre_plan"] = nombre_plan_actual
-                        estado_membresia["fecha_vencimiento"] = fecha_venc
+                        estado_membresia["fecha_vencimiento"] = fecha_venc_dt
 
                         membresia_actual_container.content = MembershipStatusCard.create_active(
-                            fecha_vencimiento=fecha_venc,
+                            fecha_vencimiento=fecha_venc_dt,
                             dias_restantes=dias_restantes,
                             nombre_plan=nombre_plan_actual,
-                            on_renew_click=None  # Deshabilitado mientras esté activa
+                            on_renew_click=None,  # Deshabilitado mientras esté activa
+                            dias_transcurridos=dias_transcurridos,
+                            dias_totales=dias_totales
                         )
                     else:
                         # Membresía vencida
                         estado_membresia["tiene_activa"] = False
                         estado_membresia["dias_restantes"] = dias_restantes
                         estado_membresia["nombre_plan"] = nombre_plan_actual
-                        estado_membresia["fecha_vencimiento"] = fecha_venc
+                        estado_membresia["fecha_vencimiento"] = fecha_venc_dt
 
                         membresia_actual_container.content = MembershipStatusCard.create_expired(
-                            fecha_vencimiento=fecha_venc,
+                            fecha_vencimiento=fecha_venc_dt,
                             nombre_plan=nombre_plan_actual,
                             on_renew_click=lambda e: scroll_to_plans()
                         )

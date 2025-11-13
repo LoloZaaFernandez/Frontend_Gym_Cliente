@@ -6,7 +6,7 @@ ANTES: 145 líneas | DESPUÉS: ~90 líneas (38% menos código)
 import flet as ft
 import os
 from config.theme import Theme
-from config.settings import LOGO_PATH, BG_PATH_ROL
+from config.settings import LOGO_PATH, BG_PATH_ROL, ADMIN_ICON_PATH, ADMIN_ICON_HOVER_PATH, CLIENT_ICON_PATH, CLIENT_ICON_HOVER_PATH
 
 
 def show_role_selection(page: ft.Page, on_admin_click, on_client_click):
@@ -26,19 +26,37 @@ def show_role_selection(page: ft.Page, on_admin_click, on_client_click):
     # Verificar imágenes
     logo_exists = os.path.exists(LOGO_PATH)
     bg_exists = os.path.exists(BG_PATH_ROL)
+    admin_icon_exists = os.path.exists(ADMIN_ICON_PATH)
+    admin_icon_hover_exists = os.path.exists(ADMIN_ICON_HOVER_PATH)
+    client_icon_exists = os.path.exists(CLIENT_ICON_PATH)
+    client_icon_hover_exists = os.path.exists(CLIENT_ICON_HOVER_PATH)
 
-    def create_role_card(title, description, icon, color, on_click):
+    def create_role_card(title, description, icon, color, on_click, icon_image=None, icon_image_hover=None):
         """Crear tarjeta de rol con hover effect"""
+        # Usar imagen PNG si está disponible, sino usar icono
+        if icon_image and os.path.exists(icon_image):
+            icon_content = ft.Image(
+                src=icon_image,
+                width=180,
+                height=180,
+                fit=ft.ImageFit.CONTAIN,
+                border_radius=Theme.RADIUS["md"]
+            )
+        else:
+            icon_content = ft.Icon(icon, size=60, color=color)
+
+        icon_container = ft.Container(
+            content=icon_content,
+            bgcolor=f"{color}22" if not icon_image else "transparent",
+            border_radius=Theme.RADIUS["xl"],
+            width=100,
+            height=100,
+            alignment=ft.alignment.center
+        )
+
         card = ft.Container(
             content=ft.Column([
-                ft.Container(
-                    content=ft.Icon(icon, size=60, color=color),
-                    bgcolor=f"{color}22",
-                    border_radius=Theme.RADIUS["xl"],
-                    width=100,
-                    height=100,
-                    alignment=ft.alignment.center
-                ),
+                icon_container,
                 ft.Text(title, size=Theme.FONT_SIZE["xl"],
                        weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY),
                 ft.Text(description, size=Theme.FONT_SIZE["sm"],
@@ -60,11 +78,19 @@ def show_role_selection(page: ft.Page, on_admin_click, on_client_click):
                 card.border = ft.border.all(2, color)
                 card.shadow = Theme.get_shadow("2xl")
                 card.scale = 1.05
+
+                # Cambiar imagen en hover si está disponible
+                if icon_image_hover and os.path.exists(icon_image_hover):
+                    icon_content.src = icon_image_hover
             else:
                 card.bgcolor = Theme.CARD_BG
                 card.border = ft.border.all(1, Theme.BORDER_DEFAULT)
                 card.shadow = Theme.get_shadow("lg")
                 card.scale = 1.0
+
+                # Restaurar imagen original
+                if icon_image and os.path.exists(icon_image):
+                    icon_content.src = icon_image
             card.update()
 
         card.on_hover = on_hover
@@ -109,9 +135,13 @@ def show_role_selection(page: ft.Page, on_admin_click, on_client_click):
             # Tarjetas de rol
             ft.Row([
                 create_role_card("Administrador", "Gestión completa del gimnasio",
-                               ft.Icons.ADMIN_PANEL_SETTINGS, Theme.PRIMARY, lambda _: on_admin_click()),
+                               ft.Icons.ADMIN_PANEL_SETTINGS, Theme.PRIMARY, lambda _: on_admin_click(),
+                               icon_image=ADMIN_ICON_PATH if admin_icon_exists else None,
+                               icon_image_hover=ADMIN_ICON_HOVER_PATH if admin_icon_hover_exists else None),
                 create_role_card("Cliente", "Portal personal del cliente",
-                               ft.Icons.PERSON, "#4CAF50", lambda _: on_client_click()),
+                               ft.Icons.PERSON, "#4CAF50", lambda _: on_client_click(),
+                               icon_image=CLIENT_ICON_PATH if client_icon_exists else None,
+                               icon_image_hover=CLIENT_ICON_HOVER_PATH if client_icon_hover_exists else None),
             ], alignment=ft.MainAxisAlignment.CENTER, spacing=Theme.SPACING["4xl"]),
 
             ft.Container(expand=True),

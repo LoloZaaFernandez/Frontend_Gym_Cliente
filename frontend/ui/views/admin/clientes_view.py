@@ -11,7 +11,7 @@ from ui.layouts import create_base_layout
 from ui.components.atoms import create_primary_button, create_outlined_button, create_status_badge, create_icon_button
 from ui.components.molecules import create_card_container, create_confirmation_dialog, create_empty_state
 from ui.utils.messages import mostrar_exito, mostrar_error
-from ui.utils.datetime_utils import parse_datetime_from_api, format_datetime_display, format_date_display
+from ui.utils.datetime_utils import parse_datetime_from_api, format_datetime_display, format_date_display, get_now_local
 from datetime import datetime
 
 
@@ -207,7 +207,7 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
                     if not fecha_venc:
                         raise ValueError("No se pudo parsear la fecha")
                     fecha_venc_solo_fecha = fecha_venc.date()
-                    fecha_actual_solo_fecha = datetime.now().date()
+                    fecha_actual_solo_fecha = get_now_local().date()
                     dias_restantes = (fecha_venc_solo_fecha - fecha_actual_solo_fecha).days
 
                     if dias_restantes > 7:
@@ -253,58 +253,54 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
             }
 
     def get_ultimo_checkin(cliente_id):
-        """Obtener último check-in del cliente"""
+        """Obtener último check-in del cliente con conversión correcta de timezone"""
         try:
             asistencias = api.get_asistencias_cliente(cliente_id)
 
             if not asistencias or len(asistencias) == 0:
                 return "Sin registro"
 
-            # Intentar ordenar por múltiples claves posibles
-            def get_sort_key(asist):
-                # Intentar obtener fecha/hora para ordenar
-                for clave in ['fecha_hora', 'hora_ingreso', 'fecha_registro', 'created_at']:
-                    valor = asist.get(clave)
-                    if valor:
-                        return str(valor)
-                return ''
-
+            # Ordenar por fecha_asistencia (campo que realmente existe en la API)
             asistencias_ordenadas = sorted(
                 asistencias,
-                key=get_sort_key,
+                key=lambda x: x.get('fecha_asistencia', ''),
                 reverse=True
             )
 
             ultima = asistencias_ordenadas[0]
 
-            # Intentar extraer fecha y hora de múltiples claves posibles
-            posibles_claves = ['fecha_hora', 'hora_ingreso', 'fecha_registro', 'created_at']
+            # El API devuelve fecha_asistencia y hora_ingreso por separado
+            fecha_asistencia = ultima.get('fecha_asistencia', '')
+            hora_ingreso = ultima.get('hora_ingreso', '')
 
-            for clave in posibles_claves:
-                fecha_hora_str = ultima.get(clave)
-                if fecha_hora_str:
-                    # Usar la utilidad de parseo con conversión de zona horaria
-                    dt = parse_datetime_from_api(fecha_hora_str)
-                    if dt:
-                        return format_datetime_display(dt)
-
-            # Si no se pudo parsear, intentar construir desde fecha + hora separadas
-            fecha_str = ultima.get('fecha') or ultima.get('fecha_asistencia')
-            hora_str = ultima.get('hora') or ultima.get('hora_registro')
-
-            if fecha_str and hora_str:
+            if fecha_asistencia and hora_ingreso:
                 try:
-                    datetime_str = f"{fecha_str}T{hora_str}"
+                    # Limpiar la hora si tiene microsegundos
+                    hora_limpia = str(hora_ingreso).split('.')[0] if '.' in str(hora_ingreso) else str(hora_ingreso)
+
+                    # Si la hora ya tiene formato ISO completo, usarla directamente
+                    if 'T' in str(hora_ingreso):
+                        datetime_str = hora_ingreso
+                    else:
+                        # Combinar fecha + hora en formato ISO
+                        datetime_str = f"{fecha_asistencia}T{hora_limpia}"
+
+                    # Parsear con conversión de UTC a hora local
                     dt = parse_datetime_from_api(datetime_str)
                     if dt:
                         return format_datetime_display(dt)
-                except:
-                    # Último recurso: mostrar fecha y hora por separado
-                    return f"{fecha_str} {hora_str[:5]}"
+                except Exception as e:
+                    print(f"Error parseando último check-in: {e}")
 
-            # Si solo tenemos fecha
-            if fecha_str:
-                return f"{fecha_str} --:--"
+            # Si solo tenemos fecha_asistencia
+            if fecha_asistencia:
+                try:
+                    dt = parse_datetime_from_api(fecha_asistencia)
+                    if dt:
+                        return dt.strftime('%d/%m/%Y')
+                except:
+                    pass
+                return fecha_asistencia
 
             return "Sin registro"
 

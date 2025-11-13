@@ -24,6 +24,7 @@ from ui.views.admin.asistencia_view import show_asistencia_view
 from ui.views.admin.admin_membresias_view import show_admin_membresias_view
 from ui.views.admin.pos_view import show_pos_view
 from ui.views.admin.productos_view import show_productos_view
+from ui.views.admin.alertas_productos_view import show_alertas_productos_view
 from ui.views.admin.reportes_view import show_reportes_view
 
 # Vistas de cliente
@@ -132,6 +133,8 @@ def main(page: ft.Page):
                 show_pos_view(page, auth_service, navigate_to_section, section_name)
             elif section_name == "Productos":
                 show_productos_view(page, auth_service, navigate_to_section, section_name)
+            elif section_name == "Alertas":
+                show_alertas_productos_view(page, auth_service, navigate_to_section, section_name)
             elif section_name == "Reportes":
                 show_reportes_view(page, auth_service, navigate_to_section, section_name)
             else:
