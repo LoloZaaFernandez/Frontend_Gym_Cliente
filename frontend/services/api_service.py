@@ -778,32 +778,95 @@ class APIService:
 
     # ==================== VENTAS (POS) ====================
 
-    def crear_venta(self, items: List[Dict[str, Any]], cliente_id: Optional[int] = None,
-                    metodo_pago: str = "Efectivo") -> Dict[str, Any]:
-        """Crear una venta (desde POS)"""
+    def crear_venta(self, items: List[Dict[str, Any]],
+                    cliente_id: Optional[int] = None,
+                    tipo_cliente: str = "Publico",
+                    metodo_pago: str = "Efectivo",
+                    descuento: float = 0,
+                    notas: str = "",
+                    usuario_creacion: str = "sistema") -> Dict[str, Any]:
+        """
+        Crear una venta (desde POS)
+
+        Args:
+            items: Lista de productos con id_producto y cantidad
+            cliente_id: ID del cliente (opcional)
+            tipo_cliente: "Publico", "Miembro", "Mayorista"
+            metodo_pago: Método de pago
+            descuento: Descuento aplicado
+            notas: Notas adicionales
+            usuario_creacion: Usuario que registra
+        """
         url = f"{self.base_url}/api/ventas"
+
+        # Transformar items al formato que espera el backend
+        productos = [
+            {
+                "id_producto": item.get('id_producto', item.get('producto_id', item.get('id'))),
+                "cantidad": item['cantidad']
+                # NO enviar precio_unitario - el backend lo calcula automáticamente
+            }
+            for item in items
+        ]
+
+        # Estructura correcta según documentación del backend
         data = {
-            "cliente_id": cliente_id,
-            "items": items,
-            "metodo_pago": metodo_pago
+            "id_cliente": cliente_id,           # Backend espera "id_cliente" no "cliente_id"
+            "tipo_cliente": tipo_cliente,       # Requerido por el backend
+            "metodo_pago": metodo_pago,
+            "descuento": descuento,
+            "notas": notas,
+            "productos": productos,             # Backend espera "productos" no "items"
+            "usuario_creacion": usuario_creacion
         }
+
         try:
             response = self.session.post(url, json=data, timeout=self.timeout)
             return self._handle_response(response)
         except Exception as e:
             raise ValueError(f"Error al crear venta: {str(e)}")
 
-    def get_ventas(self, fecha_inicio: Optional[str] = None, fecha_fin: Optional[str] = None,
-                   metodo_pago: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Obtener ventas con filtros"""
+    def get_ventas(self, fecha_desde: Optional[str] = None,
+                   fecha_hasta: Optional[str] = None,
+                   estado: Optional[str] = None,
+                   id_cliente: Optional[int] = None,
+                   tipo_cliente: Optional[str] = None,
+                   metodo_pago: Optional[str] = None,
+                   skip: int = 0,
+                   limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Obtener ventas con filtros
+
+        Args:
+            fecha_desde: Fecha inicial (YYYY-MM-DD)
+            fecha_hasta: Fecha final (YYYY-MM-DD)
+            estado: "Completada", "Cancelada", "Pendiente"
+            id_cliente: Filtrar por ID de cliente
+            tipo_cliente: "Publico", "Miembro", "Mayorista"
+            metodo_pago: Filtrar por método de pago
+            skip: Registros a saltar (paginación)
+            limit: Registros por página (default: 50, max: 500)
+        """
         url = f"{self.base_url}/api/ventas"
         params = {}
-        if fecha_inicio:
-            params['fecha_inicio'] = fecha_inicio
-        if fecha_fin:
-            params['fecha_fin'] = fecha_fin
+
+        # Backend espera "fecha_desde" y "fecha_hasta"
+        if fecha_desde:
+            params['fecha_desde'] = fecha_desde
+        if fecha_hasta:
+            params['fecha_hasta'] = fecha_hasta
+        if estado:
+            params['estado'] = estado
+        if id_cliente:
+            params['id_cliente'] = id_cliente
+        if tipo_cliente:
+            params['tipo_cliente'] = tipo_cliente
         if metodo_pago:
             params['metodo_pago'] = metodo_pago
+        if skip:
+            params['skip'] = skip
+        if limit:
+            params['limit'] = limit
 
         try:
             response = self.session.get(url, params=params, timeout=self.timeout)
@@ -812,26 +875,496 @@ class APIService:
             print(f"Error al obtener ventas: {e}")
             return []
 
-    def get_reporte_ventas(self, fecha_inicio: Optional[str] = None, fecha_fin: Optional[str] = None) -> Dict[str, Any]:
-        """Obtener reporte de ventas con totales por método de pago"""
-        url = f"{self.base_url}/api/ventas/reporte"
+    def get_venta_por_id(self, venta_id: int) -> Optional[Dict[str, Any]]:
+        """Obtener una venta específica por ID (incluye detalles completos)"""
+        url = f"{self.base_url}/api/ventas/{venta_id}"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener venta: {e}")
+            return None
+
+    def get_venta_por_folio(self, folio: str) -> Optional[Dict[str, Any]]:
+        """Buscar venta por folio (ej: VEN-20250113-0001)"""
+        url = f"{self.base_url}/api/ventas/folio/{folio}"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al buscar venta por folio: {e}")
+            return None
+
+    def cancelar_venta(self, venta_id: int, motivo: str, usuario: str = "admin") -> Dict[str, Any]:
+        """Cancelar una venta (revierte inventario automáticamente)"""
+        url = f"{self.base_url}/api/ventas/{venta_id}/cancelar"
+        data = {
+            "motivo": motivo,
+            "usuario": usuario
+        }
+        try:
+            response = self.session.post(url, json=data, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al cancelar venta: {str(e)}")
+
+    def get_reporte_ventas_metodos_pago(self, fecha_desde: Optional[str] = None,
+                                         fecha_hasta: Optional[str] = None) -> Dict[str, Any]:
+        """Obtener reporte de ventas agrupado por método de pago"""
+        url = f"{self.base_url}/api/ventas/reportes/metodos-pago"
         params = {}
-        if fecha_inicio:
-            params['fecha_inicio'] = fecha_inicio
-        if fecha_fin:
-            params['fecha_fin'] = fecha_fin
+        if fecha_desde:
+            params['fecha_desde'] = fecha_desde
+        if fecha_hasta:
+            params['fecha_hasta'] = fecha_hasta
 
         try:
             response = self.session.get(url, params=params, timeout=self.timeout)
             return self._handle_response(response)
         except Exception as e:
-            print(f"Error al obtener reporte de ventas: {e}")
+            print(f"Error al obtener reporte por métodos de pago: {e}")
             return {
+                "total_general": 0,
                 "total_ventas": 0,
-                "total_efectivo": 0,
-                "total_yape": 0,
-                "productos_vendidos": []
+                "efectivo": {"cantidad": 0, "total": 0},
+                "yape": {"cantidad": 0, "total": 0},
+                "otros": {"cantidad": 0, "total": 0}
             }
+
+    def get_reporte_ventas_diario(self, fecha: Optional[str] = None) -> Dict[str, Any]:
+        """Obtener reporte diario de ventas"""
+        url = f"{self.base_url}/api/ventas/reportes/diario"
+        params = {}
+        if fecha:
+            params['fecha'] = fecha
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte diario: {e}")
+            return {}
+
+    def get_reporte_ventas_semanal(self, fecha: Optional[str] = None) -> Dict[str, Any]:
+        """Obtener reporte semanal de ventas"""
+        url = f"{self.base_url}/api/ventas/reportes/semanal"
+        params = {}
+        if fecha:
+            params['fecha'] = fecha
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte semanal: {e}")
+            return {}
+
+    def get_reporte_ventas_mensual(self, mes: Optional[int] = None, anio: Optional[int] = None) -> Dict[str, Any]:
+        """Obtener reporte mensual de ventas"""
+        url = f"{self.base_url}/api/ventas/reportes/mensual"
+        params = {}
+        if mes:
+            params['mes'] = mes
+        if anio:
+            params['anio'] = anio
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte mensual: {e}")
+            return {}
+
+    def get_reporte_ventas_anual(self, anio: Optional[int] = None) -> Dict[str, Any]:
+        """Obtener reporte anual de ventas"""
+        url = f"{self.base_url}/api/ventas/reportes/anual"
+        params = {}
+        if anio:
+            params['anio'] = anio
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte anual: {e}")
+            return {}
+
+    # DEPRECATED: Mantener por compatibilidad
+    def get_reporte_ventas(self, fecha_inicio: Optional[str] = None, fecha_fin: Optional[str] = None) -> Dict[str, Any]:
+        """
+        DEPRECATED: Usar get_reporte_ventas_metodos_pago en su lugar
+        Obtener reporte de ventas con totales por método de pago
+        """
+        # Redirigir al nuevo método con nombres correctos
+        return self.get_reporte_ventas_metodos_pago(fecha_desde=fecha_inicio, fecha_hasta=fecha_fin)
+
+    # ==================== EGRESOS ====================
+
+    def get_categorias_egresos(self, estado: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Obtener categorías de egresos
+
+        Args:
+            estado: "Activa" o "Inactiva" (opcional)
+
+        Returns:
+            Lista de categorías: [{"id": 1, "nombre": "Servicios", "descripcion": "...", ...}]
+        """
+        url = f"{self.base_url}/api/egresos/categorias"
+        params = {}
+        if estado:
+            params['estado'] = estado
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener categorías de egresos: {e}")
+            return []
+
+    def crear_categoria_egreso(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Crear nueva categoría de egreso
+
+        Args:
+            data: {
+                "nombre": "Nueva Categoría",       # Requerido (min 3 chars)
+                "descripcion": "Descripción...",   # Opcional
+                "estado": "Activa"                 # Opcional (default: "Activa")
+            }
+
+        Returns:
+            Categoría creada
+        """
+        url = f"{self.base_url}/api/egresos/categorias"
+        try:
+            response = self.session.post(url, json=data, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al crear categoría de egreso: {e}")
+            raise
+
+    def get_categoria_egreso_por_id(self, categoria_id: int) -> Optional[Dict[str, Any]]:
+        """Obtener categoría de egreso específica por ID"""
+        url = f"{self.base_url}/api/egresos/categorias/{categoria_id}"
+        print(f"🌐 API GET: {url}")
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            print(f"📥 Status Code: {response.status_code}")
+            result = self._handle_response(response)
+            print(f"📥 Resultado: {result}")
+            return result
+        except Exception as e:
+            print(f"❌ Error al obtener categoría de egreso: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def actualizar_categoria_egreso(self, categoria_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Actualizar categoría de egreso
+
+        Args:
+            categoria_id: ID de la categoría
+            data: Campos a actualizar (nombre, descripcion, estado)
+
+        Returns:
+            Categoría actualizada
+        """
+        url = f"{self.base_url}/api/egresos/categorias/{categoria_id}"
+        print(f"🌐 API PATCH: {url}")
+        print(f"📤 Datos: {data}")
+        try:
+            response = self.session.patch(url, json=data, timeout=self.timeout)
+            print(f"📥 Status Code: {response.status_code}")
+            result = self._handle_response(response)
+            print(f"📥 Resultado: {result}")
+            return result
+        except Exception as e:
+            print(f"❌ Error al actualizar categoría de egreso: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+
+    def eliminar_categoria_egreso(self, categoria_id: int) -> bool:
+        """Eliminar categoría de egreso (solo si no tiene egresos asociados)"""
+        url = f"{self.base_url}/api/egresos/categorias/{categoria_id}"
+        print(f"🌐 API DELETE: {url}")
+        try:
+            response = self.session.delete(url, timeout=self.timeout)
+            print(f"📥 Status Code: {response.status_code}")
+            print(f"📥 Response text: {response.text}")
+            success = response.status_code in [200, 204]
+            print(f"📥 Resultado: {success}")
+            return success
+        except Exception as e:
+            print(f"❌ Error al eliminar categoría de egreso: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def crear_egreso(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Crear nuevo egreso
+
+        Args:
+            data: {
+                "id_categoria": 1,              # Requerido
+                "concepto": "Pago de luz",      # Requerido (min 3 chars)
+                "descripcion": "Consumo enero", # Opcional
+                "monto": 1500.00,               # Requerido (> 0)
+                "metodo_pago": "Transferencia", # Requerido
+                "fecha_egreso": "2025-01-15",   # Requerido (YYYY-MM-DD)
+                "proveedor": "CFE",             # Opcional
+                "numero_factura": "FAC-001",    # Opcional
+                "estado": "Pagado",             # Opcional (default: "Pagado")
+                "es_recurrente": true,          # Opcional (default: false)
+                "frecuencia": "Mensual",        # Opcional
+                "notas": "...",                 # Opcional
+                "usuario_creacion": "admin"     # Opcional
+            }
+
+        Returns:
+            Egreso creado con folio generado automáticamente
+        """
+        url = f"{self.base_url}/api/egresos"
+        try:
+            response = self.session.post(url, json=data, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al crear egreso: {str(e)}")
+
+    def get_egresos(self,
+                    fecha_desde: Optional[str] = None,
+                    fecha_hasta: Optional[str] = None,
+                    id_categoria: Optional[int] = None,
+                    estado: Optional[str] = None,
+                    skip: int = 0,
+                    limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Obtener lista de egresos con filtros
+
+        Args:
+            fecha_desde: Fecha inicial (YYYY-MM-DD)
+            fecha_hasta: Fecha final (YYYY-MM-DD)
+            id_categoria: Filtrar por categoría
+            estado: "Pagado", "Pendiente", "Cancelado"
+            skip: Registros a saltar (paginación)
+            limit: Registros por página (default: 50, max: 500)
+
+        Returns:
+            Lista de egresos
+        """
+        url = f"{self.base_url}/api/egresos"
+        params = {}
+        if fecha_desde:
+            params['fecha_desde'] = fecha_desde
+        if fecha_hasta:
+            params['fecha_hasta'] = fecha_hasta
+        if id_categoria:
+            params['id_categoria'] = id_categoria
+        if estado:
+            params['estado'] = estado
+        if skip:
+            params['skip'] = skip
+        if limit:
+            params['limit'] = limit
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener egresos: {e}")
+            return []
+
+    def get_egreso_por_id(self, egreso_id: int) -> Optional[Dict[str, Any]]:
+        """Obtener egreso específico por ID"""
+        url = f"{self.base_url}/api/egresos/{egreso_id}"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener egreso: {e}")
+            return None
+
+    def actualizar_egreso(self, egreso_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Actualizar egreso (PATCH - todos los campos son opcionales)
+
+        Args:
+            egreso_id: ID del egreso
+            data: Campos a actualizar (cualquiera de los del create)
+        """
+        url = f"{self.base_url}/api/egresos/{egreso_id}"
+        try:
+            response = self.session.patch(url, json=data, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al actualizar egreso: {str(e)}")
+
+    def eliminar_egreso(self, egreso_id: int) -> bool:
+        """Eliminar egreso"""
+        url = f"{self.base_url}/api/egresos/{egreso_id}"
+        try:
+            response = self.session.delete(url, timeout=self.timeout)
+            self._handle_response(response)
+            return True
+        except Exception as e:
+            raise ValueError(f"Error al eliminar egreso: {str(e)}")
+
+    def get_egreso_por_folio(self, folio: str) -> Optional[Dict[str, Any]]:
+        """
+        Obtener egreso específico por folio
+
+        Args:
+            folio: Folio del egreso (ej: "EGR-20250113-0001")
+
+        Returns:
+            Egreso completo o None si no existe
+        """
+        url = f"{self.base_url}/api/egresos/folio/{folio}"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener egreso por folio: {e}")
+            return None
+
+    def get_reporte_egresos_por_categoria(self,
+                                           fecha_desde: Optional[str] = None,
+                                           fecha_hasta: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Obtener reporte de egresos agrupado por categoría
+
+        Returns:
+            {
+                "fecha_desde": "2025-01-01",
+                "fecha_hasta": "2025-01-31",
+                "total_egresos": 45,
+                "total_monto": 25000.00,
+                "egresos_por_categoria": [
+                    {"categoria": "Sueldos", "cantidad": 15, "total": 12000.00},
+                    ...
+                ]
+            }
+        """
+        url = f"{self.base_url}/api/egresos/reportes/por-categoria"
+        params = {}
+        if fecha_desde:
+            params['fecha_desde'] = fecha_desde
+        if fecha_hasta:
+            params['fecha_hasta'] = fecha_hasta
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte de egresos: {e}")
+            return {
+                "total_egresos": 0,
+                "total_monto": 0,
+                "egresos_por_categoria": []
+            }
+
+    # ==================== REPORTES FINANCIEROS ====================
+
+    def get_reporte_financiero_diario(self, fecha: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Obtener reporte financiero completo del día
+
+        Incluye:
+        - Ingresos por membresías
+        - Ingresos por ventas de productos
+        - Ganancia de productos
+        - Egresos del día
+        - Ganancia neta final (lo más importante)
+
+        Args:
+            fecha: Fecha del reporte (YYYY-MM-DD), default: hoy
+
+        Returns:
+            {
+                "fecha": "2025-01-15",
+                "ingresos_membresias": 15000.00,
+                "ingresos_productos": 8000.00,
+                "ganancia_productos": 3000.00,
+                "total_ingresos": 23000.00,
+                "total_egresos": 5000.00,
+                "ganancia_neta": 13000.00,      # ← Lo más importante
+                "margen_neto": 56.52,
+                "detalle_ingresos": {...},
+                "detalle_egresos": {...}
+            }
+        """
+        url = f"{self.base_url}/api/egresos/reportes/financiero-diario"
+        params = {}
+        if fecha:
+            params['fecha'] = fecha
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte financiero diario: {e}")
+            return {
+                "fecha": fecha or "",
+                "ingresos_membresias": 0,
+                "ingresos_productos": 0,
+                "ganancia_productos": 0,
+                "total_ingresos": 0,
+                "total_egresos": 0,
+                "ganancia_neta": 0,
+                "margen_neto": 0
+            }
+
+    def get_reporte_financiero_mensual(self,
+                                         mes: Optional[int] = None,
+                                         anio: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Obtener reporte financiero mensual completo
+
+        Args:
+            mes: Mes (1-12), default: mes actual
+            anio: Año, default: año actual
+
+        Returns:
+            Similar al diario + ingresos por día, egresos por día, mejor día del mes
+        """
+        url = f"{self.base_url}/api/egresos/reportes/financiero-mensual"
+        params = {}
+        if mes:
+            params['mes'] = mes
+        if anio:
+            params['anio'] = anio
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte financiero mensual: {e}")
+            return {}
+
+    def get_reporte_financiero_anual(self, anio: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Obtener reporte financiero anual completo
+
+        Args:
+            anio: Año, default: año actual
+
+        Returns:
+            Similar al mensual + ingresos por mes, mejor/peor mes del año
+        """
+        url = f"{self.base_url}/api/egresos/reportes/financiero-anual"
+        params = {}
+        if anio:
+            params['anio'] = anio
+
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener reporte financiero anual: {e}")
+            return {}
 
     # ==================== REPORTES ====================
 

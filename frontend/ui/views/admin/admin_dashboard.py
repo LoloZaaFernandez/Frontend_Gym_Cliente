@@ -61,7 +61,7 @@ def show_admin_dashboard(page: ft.Page, auth_service, on_logout, on_section_clic
 
             # Obtener ventas de hoy usando el endpoint correcto (con timezone local)
             fecha_hoy = get_now_local().strftime('%Y-%m-%d')
-            ventas_hoy = api.get_ventas(fecha_inicio=fecha_hoy, fecha_fin=fecha_hoy)
+            ventas_hoy = api.get_ventas(fecha_desde=fecha_hoy, fecha_hasta=fecha_hoy)
             total_ventas = len(ventas_hoy) if ventas_hoy else 0
             # Calcular ingresos sumando los totales de las ventas
             ingresos_hoy = sum(venta.get('total', 0) for venta in ventas_hoy) if ventas_hoy else 0
@@ -139,7 +139,7 @@ def show_admin_dashboard(page: ft.Page, auth_service, on_logout, on_section_clic
         try:
             # Obtener ventas de hoy (usando endpoint correcto con timezone local)
             fecha_hoy = get_now_local().strftime('%Y-%m-%d')
-            ventas = api.get_ventas(fecha_inicio=fecha_hoy, fecha_fin=fecha_hoy)
+            ventas = api.get_ventas(fecha_desde=fecha_hoy, fecha_hasta=fecha_hoy)
 
             # Ordenar por fecha descendente (más recientes primero) y tomar solo las 3 últimas
             if ventas:

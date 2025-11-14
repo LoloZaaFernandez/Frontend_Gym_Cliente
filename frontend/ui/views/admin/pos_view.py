@@ -97,8 +97,8 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
             print(f"Desde: {fecha_inicio}")
             print(f"Hasta: {fecha_fin}")
 
-            # Intentar obtener reporte desde el backend
-            ventas = api.get_ventas(fecha_inicio=fecha_inicio, fecha_fin=fecha_fin)
+            # Obtener ventas (listado ligero - sin detalles)
+            ventas = api.get_ventas(fecha_desde=fecha_inicio, fecha_hasta=fecha_fin)
 
             print(f"Ventas recibidas del backend: {len(ventas) if ventas else 0}")
 
@@ -111,18 +111,22 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
                 return
 
             print(f"\n📋 DETALLE DE VENTAS:")
-            # Calcular totales manualmente
+            # Calcular totales de las ventas
             total_ventas = 0
             total_efectivo = 0
             total_yape = 0
             productos_vendidos = {}
 
+            # Procesar cada venta y obtener sus detalles
             for idx, venta in enumerate(ventas, 1):
+                venta_id = venta.get('id')
                 total_venta = venta.get('total', 0)
                 metodo_pago = venta.get('metodo_pago', 'Efectivo')
-                fecha = venta.get('fecha', 'N/A')
+                fecha = venta.get('fecha_venta', venta.get('fecha', 'N/A'))
+                folio = venta.get('folio', f"#{venta_id}")
 
                 print(f"  Venta #{idx}:")
+                print(f"    Folio: {folio}")
                 print(f"    Fecha: {fecha}")
                 print(f"    Total: S/ {total_venta:.2f}")
                 print(f"    Método: {metodo_pago}")
@@ -134,23 +138,36 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
                 elif metodo_pago.lower() in ['yape', 'transferencia']:
                     total_yape += total_venta
 
-                # Agregar items de la venta
-                items = venta.get('items', [])
-                print(f"    Items: {len(items)}")
-                for item in items:
-                    producto_id = item.get('producto_id')
-                    nombre = item.get('nombre_producto', item.get('nombre', 'Desconocido'))
-                    cantidad = item.get('cantidad', 0)
+                # Obtener detalles completos de la venta (productos)
+                # El listado NO trae items, hay que pedirlos individualmente
+                if venta_id:
+                    try:
+                        venta_completa = api.get_venta_por_id(venta_id)
+                        if venta_completa:
+                            # Backend devuelve 'detalles' con los productos
+                            items = venta_completa.get('detalles', [])
+                            print(f"    Items: {len(items)}")
 
-                    print(f"      - {nombre}: {cantidad} unidades")
+                            for item in items:
+                                producto_id = item.get('id_producto')
+                                nombre = item.get('nombre_producto', 'Desconocido')
+                                cantidad = item.get('cantidad', 0)
 
-                    if producto_id in productos_vendidos:
-                        productos_vendidos[producto_id]['cantidad'] += cantidad
-                    else:
-                        productos_vendidos[producto_id] = {
-                            'nombre': nombre,
-                            'cantidad': cantidad
-                        }
+                                print(f"      - {nombre}: {cantidad} unidades")
+
+                                if producto_id in productos_vendidos:
+                                    productos_vendidos[producto_id]['cantidad'] += cantidad
+                                else:
+                                    productos_vendidos[producto_id] = {
+                                        'nombre': nombre,
+                                        'cantidad': cantidad
+                                    }
+                        else:
+                            print(f"    Items: No se pudieron obtener")
+                    except Exception as e:
+                        print(f"    Items: Error al obtener detalles - {e}")
+                else:
+                    print(f"    Items: ID de venta no disponible")
 
             print(f"\n💰 TOTALES:")
             print(f"  Total Ventas: S/ {total_ventas:.2f}")
@@ -569,12 +586,14 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
                 return
 
             try:
-                # Preparar items para el backend
-                items = [
+                # Preparar productos en el formato correcto que espera el backend
+                # Backend espera: productos con "id_producto" y "cantidad"
+                # NO enviar precio_unitario - el backend lo calcula automáticamente
+                productos = [
                     {
-                        "producto_id": item['id'],
-                        "cantidad": item['cantidad'],
-                        "precio_unitario": item['precio']
+                        "id_producto": item['id'],  # Backend espera "id_producto" no "producto_id"
+                        "cantidad": item['cantidad']
+                        # NO incluir precio - el backend lo calcula según tipo de cliente
                     }
                     for item in carrito_items
                 ]
@@ -583,21 +602,60 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
                 print(f"🛒 PROCESANDO VENTA")
                 print(f"{'='*60}")
                 print(f"Método de pago: {metodo_pago}")
-                print(f"Total: S/ {total_venta:.2f}")
-                print(f"Items: {len(items)}")
-                for i, item in enumerate(items, 1):
-                    print(f"  {i}. Producto ID {item['producto_id']}: {item['cantidad']} x S/ {item['precio_unitario']}")
+                print(f"Total esperado: S/ {total_venta:.2f}")
+                print(f"Productos: {len(productos)}")
+                for i, prod in enumerate(productos, 1):
+                    # Buscar info del producto en el carrito para mostrar
+                    item_carrito = next((x for x in carrito_items if x['id'] == prod['id_producto']), None)
+                    if item_carrito:
+                        print(f"  {i}. Producto ID {prod['id_producto']}: {prod['cantidad']} x S/ {item_carrito['precio']}")
+
+                # Crear payload para enviar
+                payload_info = {
+                    "items": productos,
+                    "cliente_id": None,
+                    "tipo_cliente": "Publico",
+                    "metodo_pago": metodo_pago,
+                    "descuento": 0,
+                    "notas": f"Venta POS - {len(productos)} producto(s)",
+                    "usuario_creacion": current_user.get("nombre", "admin")
+                }
+
+                print(f"\n📤 DATOS A ENVIAR AL BACKEND:")
+                import json
+                print(json.dumps(payload_info, indent=2, ensure_ascii=False))
                 print(f"{'='*60}\n")
 
-                # Crear venta
-                resultado = api.crear_venta(items=items, metodo_pago=metodo_pago)
+                # Crear venta con la estructura correcta
+                # tipo_cliente="Publico" por defecto (puedes cambiarlo si integras con clientes)
+                resultado = api.crear_venta(**payload_info)
 
                 print(f"✅ VENTA REGISTRADA EXITOSAMENTE")
                 print(f"Respuesta del backend: {resultado}")
                 print(f"{'='*60}\n")
 
                 page.close(dialog)
-                mostrar_exito(page, f"✅ Venta procesada exitosamente\n\nTotal: S/ {total_venta:.2f}\nMétodo: {metodo_pago}")
+
+                # Extraer información de la respuesta del backend
+                folio = resultado.get('folio', 'N/A')
+                total_real = resultado.get('total', total_venta)
+                subtotal = resultado.get('subtotal', 0)
+                iva = resultado.get('iva', 0)
+                ganancia = resultado.get('ganancia', 0)
+                estado = resultado.get('estado', 'Completada')
+
+                # Mensaje de éxito con información completa
+                mensaje_exito = f"""✅ Venta procesada exitosamente
+
+📄 Folio: {folio}
+💰 Subtotal: S/ {subtotal:.2f}
+📊 IVA: S/ {iva:.2f}
+💵 TOTAL: S/ {total_real:.2f}
+💳 Método: {metodo_pago}
+✅ Estado: {estado}
+📈 Ganancia: S/ {ganancia:.2f}"""
+
+                mostrar_exito(page, mensaje_exito)
 
                 # Limpiar carrito
                 limpiar_carrito()
