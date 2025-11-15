@@ -356,12 +356,12 @@ def show_alertas_productos_view(page: ft.Page, auth_service, on_section_click, c
         """Construir vista completa"""
         page.clean()
 
-        # Estadísticas
-        stats_row = ft.Row([
-            ft.Container(ref=stat_stock_bajo, expand=True),
-            ft.Container(ref=stat_proximos_vencer, expand=True),
-            ft.Container(ref=stat_sin_stock, expand=True),
-        ], spacing=Theme.SPACING["xl"])
+        # Estadísticas (vertical)
+        stats_column = ft.Column([
+            ft.Container(ref=stat_stock_bajo),
+            ft.Container(ref=stat_proximos_vencer),
+            ft.Container(ref=stat_sin_stock),
+        ], spacing=Theme.SPACING["lg"])
 
         # Header con acciones
         header = ft.Row([
@@ -456,7 +456,7 @@ def show_alertas_productos_view(page: ft.Page, auth_service, on_section_click, c
         content = ft.Column([
             header,
             ft.Container(height=Theme.SPACING["lg"]),
-            stats_row,
+            stats_column,
             ft.Container(height=Theme.SPACING["xl"]),
             stock_bajo_card,
             ft.Container(height=Theme.SPACING["xl"]),

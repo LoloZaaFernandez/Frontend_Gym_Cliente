@@ -931,6 +931,37 @@ class APIService:
                 "otros": {"cantidad": 0, "total": 0}
             }
 
+    def get_estadisticas_ventas_hoy(self) -> Dict[str, Any]:
+        """Obtener estadísticas rápidas del día actual"""
+        url = f"{self.base_url}/api/ventas/estadisticas/hoy"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener estadísticas de hoy: {e}")
+            return {
+                "total_ventas": 0,
+                "total": 0,
+                "ganancia": 0,
+                "ticket_promedio": 0
+            }
+
+    def get_estadisticas_ventas_mes(self) -> Dict[str, Any]:
+        """Obtener estadísticas rápidas del mes actual"""
+        url = f"{self.base_url}/api/ventas/estadisticas/mes"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener estadísticas del mes: {e}")
+            return {
+                "mes": "N/A",
+                "total_ventas": 0,
+                "total": 0,
+                "ganancia": 0,
+                "ticket_promedio": 0
+            }
+
     def get_reporte_ventas_diario(self, fecha: Optional[str] = None) -> Dict[str, Any]:
         """Obtener reporte diario de ventas"""
         url = f"{self.base_url}/api/ventas/reportes/diario"

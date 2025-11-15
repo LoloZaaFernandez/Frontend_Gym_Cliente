@@ -31,9 +31,9 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
     # ==========================================
     # REPORTE DE PAGOS
     # ==========================================
-    def create_reporte_pagos():
+    def create_reporte_pagos(periodo_inicial="dia"):
         """Crear vista de reportes de pagos"""
-        periodo_seleccionado = ["dia"]  # dia, semana, mes, anio
+        periodo_seleccionado = [periodo_inicial]  # dia, semana, mes, anio
         datos_reporte = [{}]
 
         def obtener_datos_ejemplo():
@@ -105,13 +105,28 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
 
             # Estadísticas principales
             total_pagos = reporte.get('total_pagos', 0)
-            total_monto = reporte.get('total_monto', 0.0)
-            total_clientes = reporte.get('total_clientes', 0)
+            total_monto = reporte.get('monto_total', 0.0)  # CORREGIDO: era 'total_monto'
+
+            # Contar clientes únicos desde detalle_pagos
+            detalle_pagos = reporte.get('detalle_pagos', [])
+            clientes_unicos = set()
+            for pago in detalle_pagos:
+                id_cliente = pago.get('id_cliente')
+                if id_cliente:
+                    clientes_unicos.add(id_cliente)
+            total_clientes = len(clientes_unicos)
 
             print(f"DEBUG VISTA PAGOS: total_pagos={total_pagos}, total_monto={total_monto}, total_clientes={total_clientes}")
 
-            # Desglose por método de pago
-            desglose_metodo = reporte.get('desglose_metodo_pago', [])
+            # Desglose por método de pago - CONVERTIR DE DICT A LISTA
+            metodos_pago_dict = reporte.get('metodos_pago', {})
+            desglose_metodo = []
+            for metodo, datos in metodos_pago_dict.items():
+                desglose_metodo.append({
+                    'metodo_pago': metodo,
+                    'cantidad': datos.get('cantidad', 0),
+                    'monto_total': datos.get('monto', 0.0)
+                })
             print(f"DEBUG VISTA PAGOS: desglose_metodo={desglose_metodo}")
 
             # Crear cards de estadísticas
@@ -222,13 +237,17 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
                     )
                 )
 
-            # Lista de pagos
-            pagos_lista = reporte.get('pagos', [])
+            # Lista de pagos - CORREGIDO: era 'pagos', ahora es 'detalle_pagos'
+            pagos_lista = reporte.get('detalle_pagos', [])
             pagos_container = ft.Column(spacing=Theme.SPACING["sm"], scroll=ft.ScrollMode.AUTO, height=300)
 
             if pagos_lista:
                 for pago in pagos_lista[:20]:  # Mostrar últimos 20
-                    cliente_nombre = pago.get('nombre_cliente', 'Cliente desconocido')
+                    # CORREGIDO: construir nombre del cliente desde 'nombre' y 'apellidos'
+                    nombre = pago.get('nombre', '')
+                    apellidos = pago.get('apellidos', '')
+                    cliente_nombre = f"{nombre} {apellidos}".strip() if nombre or apellidos else 'Cliente desconocido'
+
                     membresia = pago.get('nombre_membresia', 'N/A')
                     monto = pago.get('monto', 0.0)
                     metodo = pago.get('metodo_pago', 'N/A')
@@ -325,9 +344,9 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
     # ==========================================
     # REPORTE DE CLIENTES
     # ==========================================
-    def create_reporte_clientes():
+    def create_reporte_clientes(tipo_inicial="general"):
         """Crear vista de reportes de clientes"""
-        tipo_reporte = ["general"]  # general, nuevos, por_vencer, vencidas
+        tipo_reporte = [tipo_inicial]  # general, nuevos, por_vencer, vencidas
 
         def cargar_reporte_clientes():
             """Cargar datos del reporte de clientes"""
@@ -391,7 +410,7 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
 
         def mostrar_reporte_nuevos(datos):
             """Mostrar reporte de clientes nuevos"""
-            total_nuevos = datos.get('total_nuevos', 0)
+            total_nuevos = datos.get('total', 0)  # CORREGIDO: era 'total_nuevos', ahora es 'total'
             clientes = datos.get('clientes', [])
 
             lista_clientes = ft.Column(spacing=Theme.SPACING["sm"], scroll=ft.ScrollMode.AUTO, height=400)
@@ -451,7 +470,7 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
 
         def mostrar_reporte_por_vencer(datos):
             """Mostrar reporte de membresías por vencer"""
-            total = datos.get('total_clientes', 0)
+            total = datos.get('total', 0)  # CORREGIDO: era 'total_clientes', ahora es 'total'
             clientes = datos.get('clientes', [])
 
             lista_clientes = ft.Column(spacing=Theme.SPACING["sm"], scroll=ft.ScrollMode.AUTO, height=400)
@@ -521,7 +540,7 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
 
         def mostrar_reporte_vencidas(datos):
             """Mostrar reporte de membresías vencidas"""
-            total = datos.get('total_clientes', 0)
+            total = datos.get('total', 0)  # CORREGIDO: era 'total_clientes', ahora es 'total'
             clientes = datos.get('clientes', [])
 
             lista_clientes = ft.Column(spacing=Theme.SPACING["sm"], scroll=ft.ScrollMode.AUTO, height=400)
@@ -731,48 +750,380 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
         return content_asistencias
 
     # ==========================================
-    # TABS Y LAYOUT PRINCIPAL
+    # REPORTE FINANCIERO
     # ==========================================
-    def cambiar_tab(e):
-        """Cambiar entre tabs"""
-        selected_tab[0] = e.control.selected_index
+    def create_reporte_financiero(tipo="diario"):
+        """Crear vista de reporte financiero"""
 
-        if selected_tab[0] == 0:
-            content_ref.current.content = create_reporte_pagos()
-        elif selected_tab[0] == 1:
-            content_ref.current.content = create_reporte_clientes()
-        elif selected_tab[0] == 2:
+        def cargar_reporte_financiero():
+            """Cargar datos del reporte financiero"""
+            try:
+                if tipo == "diario":
+                    datos = api.get_reporte_financiero_diario()
+                elif tipo == "mensual":
+                    datos = api.get_reporte_financiero_mensual()
+                elif tipo == "anual":
+                    datos = api.get_reporte_financiero_anual()
+                else:
+                    datos = {}
+
+                # Datos principales - CORREGIDO: convertir todos a float
+                fecha = datos.get('fecha', 'N/A')
+                ingresos_membresias = float(datos.get('ingresos_membresias', 0.0)) if datos.get('ingresos_membresias') else 0.0
+                ingresos_productos = float(datos.get('ingresos_productos', 0.0)) if datos.get('ingresos_productos') else 0.0
+                ganancia_productos = float(datos.get('ganancia_productos', 0.0)) if datos.get('ganancia_productos') else 0.0
+                total_ingresos = float(datos.get('total_ingresos', 0.0)) if datos.get('total_ingresos') else 0.0
+                total_egresos = float(datos.get('total_egresos', 0.0)) if datos.get('total_egresos') else 0.0
+                ganancia_neta = float(datos.get('ganancia_neta', 0.0)) if datos.get('ganancia_neta') else 0.0
+                margen_neto = float(datos.get('margen_neto', 0.0)) if datos.get('margen_neto') else 0.0
+
+                # Estadísticas principales
+                stats = ft.Column([
+                    ft.Row([
+                        create_stat_card("Total Ingresos", f"S/ {total_ingresos:,.2f}", ft.Icons.ATTACH_MONEY, Theme.SUCCESS),
+                        create_stat_card("Total Egresos", f"S/ {total_egresos:,.2f}", ft.Icons.MONEY_OFF, Theme.ERROR),
+                        create_stat_card("Ganancia Neta", f"S/ {ganancia_neta:,.2f}", ft.Icons.TRENDING_UP, Theme.PRIMARY),
+                    ], spacing=Theme.SPACING["xl"], wrap=True),
+                    ft.Container(height=Theme.SPACING["md"]),
+                    ft.Row([
+                        create_stat_card("Ingresos Membresías", f"S/ {ingresos_membresias:,.2f}", ft.Icons.CARD_MEMBERSHIP, Theme.INFO),
+                        create_stat_card("Ingresos Productos", f"S/ {ingresos_productos:,.2f}", ft.Icons.SHOPPING_CART, Theme.INFO),
+                        create_stat_card("Margen Neto", f"{margen_neto:.2f}%", ft.Icons.PERCENT, Theme.WARNING),
+                    ], spacing=Theme.SPACING["xl"], wrap=True),
+                ], spacing=0)
+
+                # Título del período
+                if tipo == "diario":
+                    titulo_periodo = f"Reporte Financiero del Día - {fecha}"
+                elif tipo == "mensual":
+                    titulo_periodo = f"Reporte Financiero Mensual"
+                else:
+                    titulo_periodo = f"Reporte Financiero Anual"
+
+                content_financiero.content = ft.Column([
+                    ft.Container(
+                        content=ft.Row([
+                            ft.Icon(ft.Icons.ASSESSMENT, size=28, color=Theme.WARNING),
+                            ft.Text(titulo_periodo, size=Theme.FONT_SIZE["xl"], weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY),
+                        ], spacing=12),
+                        padding=Theme.SPACING["md"],
+                        bgcolor=f"{Theme.WARNING}15",
+                        border_radius=Theme.RADIUS["md"]
+                    ),
+                    ft.Container(height=Theme.SPACING["lg"]),
+                    stats,
+                ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO)
+
+                page.update()
+
+            except Exception as e:
+                print(f"Error al cargar reporte financiero: {e}")
+                import traceback
+                traceback.print_exc()
+                mostrar_error(page, f"Error al cargar reporte: {str(e)}")
+
+        # Container principal para financiero
+        content_financiero = ft.Container(expand=True)
+
+        # Cargar datos iniciales
+        cargar_reporte_financiero()
+
+        return content_financiero
+
+    # ==========================================
+    # REPORTE DE EGRESOS POR CATEGORÍA
+    # ==========================================
+    def create_reporte_egresos_categoria():
+        """Crear vista de reporte de egresos por categoría"""
+
+        def cargar_reporte_egresos():
+            """Cargar datos del reporte de egresos"""
+            try:
+                datos = api.get_reporte_egresos_por_categoria()
+
+                # CORREGIDO: convertir a int y float desde el inicio
+                total_egresos = int(datos.get('total_egresos', 0)) if datos.get('total_egresos') else 0
+                total_monto = float(datos.get('total_monto', 0.0)) if datos.get('total_monto') else 0.0
+                egresos_por_categoria = datos.get('egresos_por_categoria', [])
+
+                # Estadísticas principales
+                stats = ft.Row([
+                    create_stat_card("Total Egresos", str(total_egresos), ft.Icons.RECEIPT_LONG, Theme.ERROR),
+                    create_stat_card("Monto Total", f"S/ {total_monto:,.2f}", ft.Icons.MONEY_OFF, Theme.WARNING),
+                ], spacing=Theme.SPACING["xl"], wrap=True)
+
+                # Egresos por categoría
+                categorias_container = ft.Column(spacing=Theme.SPACING["md"])
+
+                if egresos_por_categoria:
+                    for cat_data in egresos_por_categoria:
+                        categoria = cat_data.get('categoria', 'Sin categoría')
+                        cantidad = int(cat_data.get('cantidad', 0)) if cat_data.get('cantidad') else 0
+                        monto = float(cat_data.get('total', 0.0)) if cat_data.get('total') else 0.0  # CORREGIDO: convertir a float
+                        porcentaje = (monto / total_monto * 100) if total_monto > 0 else 0
+
+                        categorias_container.controls.append(
+                            ft.Container(
+                                content=ft.Column([
+                                    ft.Row([
+                                        ft.Column([
+                                            ft.Icon(ft.Icons.CATEGORY, size=32, color=Theme.ERROR),
+                                        ], alignment=ft.MainAxisAlignment.CENTER, width=50),
+                                        ft.Column([
+                                            ft.Text(categoria, size=Theme.FONT_SIZE["lg"], weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY),
+                                            ft.Text(f"{cantidad} egresos ({porcentaje:.1f}%)", size=Theme.FONT_SIZE["sm"], color=Theme.TEXT_SECONDARY),
+                                        ], spacing=4, expand=True),
+                                        ft.Column([
+                                            ft.Text(f"S/ {monto:,.2f}", size=Theme.FONT_SIZE["xl"], weight=Theme.FONT_WEIGHT["bold"], color=Theme.ERROR, text_align=ft.TextAlign.RIGHT),
+                                        ], horizontal_alignment=ft.CrossAxisAlignment.END),
+                                    ], spacing=Theme.SPACING["lg"]),
+                                    # Barra de progreso
+                                    ft.Container(
+                                        content=ft.Container(
+                                            bgcolor=Theme.ERROR,
+                                            border_radius=Theme.RADIUS["sm"],
+                                            height=8,
+                                        ),
+                                        width=f"{porcentaje}%",
+                                        bgcolor=f"{Theme.ERROR}22",
+                                        border_radius=Theme.RADIUS["sm"],
+                                        height=8,
+                                        margin=ft.margin.only(top=Theme.SPACING["sm"])
+                                    ),
+                                ], spacing=Theme.SPACING["xs"]),
+                                padding=Theme.SPACING["lg"],
+                                bgcolor=Theme.CARD_BG,
+                                border_radius=Theme.RADIUS["md"],
+                                border=ft.border.all(1, Theme.BORDER_DEFAULT)
+                            )
+                        )
+                else:
+                    categorias_container.controls.append(
+                        ft.Container(
+                            content=ft.Column([
+                                ft.Icon(ft.Icons.INFO_OUTLINE, size=48, color=Theme.TEXT_SECONDARY),
+                                ft.Text("No hay egresos registrados", size=Theme.FONT_SIZE["md"], color=Theme.TEXT_PRIMARY),
+                            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=Theme.SPACING["md"]),
+                            padding=Theme.SPACING["2xl"]
+                        )
+                    )
+
+                content_egresos.content = ft.Column([
+                    stats,
+                    ft.Container(height=Theme.SPACING["lg"]),
+                    create_card_container(
+                        content=ft.Column([
+                            ft.Text("Egresos por Categoría", size=Theme.FONT_SIZE["lg"], weight=Theme.FONT_WEIGHT["bold"], color=Theme.ERROR),
+                            ft.Divider(height=1, color=Theme.BORDER_DEFAULT),
+                            categorias_container,
+                        ], spacing=Theme.SPACING["lg"]),
+                        padding=Theme.SPACING["xl"]
+                    ),
+                ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO)
+
+                page.update()
+
+            except Exception as e:
+                print(f"Error al cargar reporte de egresos: {e}")
+                import traceback
+                traceback.print_exc()
+                mostrar_error(page, f"Error al cargar reporte: {str(e)}")
+
+        # Container principal para egresos
+        content_egresos = ft.Container(expand=True)
+
+        # Cargar datos iniciales
+        cargar_reporte_egresos()
+
+        return content_egresos
+
+    # ==========================================
+    # FUNCIONES AUXILIARES PARA INICIALIZAR REPORTES
+    # ==========================================
+    def create_reporte_pagos_con_periodo(periodo):
+        """Crear reporte de pagos con un período específico"""
+        return create_reporte_pagos(periodo_inicial=periodo)
+
+    def create_reporte_clientes_con_tipo(tipo):
+        """Crear reporte de clientes con un tipo específico"""
+        # Mapear nombres de tipo para que coincidan con los esperados
+        tipo_mapeado = tipo
+        if tipo == "vencidas":
+            tipo_mapeado = "vencidas"
+        elif tipo == "por_vencer":
+            tipo_mapeado = "por_vencer"
+        return create_reporte_clientes(tipo_inicial=tipo_mapeado)
+
+    # ==========================================
+    # NAVEGACIÓN POR BOTONES
+    # ==========================================
+    reporte_actual = ["pagos_dia"]  # Reporte seleccionado actualmente
+    botones_refs = {}  # Referencias a los botones para actualizarlos
+
+    def actualizar_botones():
+        """Actualizar el estado visual de todos los botones"""
+        for tipo, boton_ref in botones_refs.items():
+            if boton_ref.current:
+                es_activo = reporte_actual[0] == tipo
+                # Obtener el color original del botón
+                if tipo.startswith("pagos_"):
+                    color = Theme.PRIMARY
+                elif tipo.startswith("clientes_"):
+                    color = Theme.INFO
+                elif tipo == "asistencias":
+                    color = Theme.SUCCESS
+                else:  # financieros
+                    color = Theme.WARNING
+
+                boton_ref.current.bgcolor = color if es_activo else f"{color}15"
+                boton_ref.current.border = ft.border.all(2, color if es_activo else f"{color}30")
+                # Actualizar icono y texto
+                icono = boton_ref.current.content.controls[0]
+                texto = boton_ref.current.content.controls[1]
+                icono.color = "white" if es_activo else color
+                texto.color = "white" if es_activo else Theme.TEXT_PRIMARY
+                texto.weight = Theme.FONT_WEIGHT["bold"] if es_activo else Theme.FONT_WEIGHT["medium"]
+                boton_ref.current.update()
+
+    def cambiar_reporte(tipo_reporte):
+        """Cambiar al reporte seleccionado"""
+        print(f"DEBUG: Cambiando a reporte: {tipo_reporte}")
+        reporte_actual[0] = tipo_reporte
+
+        # Mapeo de reportes
+        if tipo_reporte.startswith("pagos_"):
+            periodo = tipo_reporte.replace("pagos_", "")
+            print(f"DEBUG: Cargando reporte de pagos con período: {periodo}")
+            content_ref.current.content = create_reporte_pagos_con_periodo(periodo)
+        elif tipo_reporte.startswith("clientes_"):
+            tipo_cliente = tipo_reporte.replace("clientes_", "")
+            print(f"DEBUG: Cargando reporte de clientes tipo: {tipo_cliente}")
+            content_ref.current.content = create_reporte_clientes_con_tipo(tipo_cliente)
+        elif tipo_reporte == "asistencias":
+            print(f"DEBUG: Cargando reporte de asistencias")
             content_ref.current.content = create_reporte_asistencias()
+        elif tipo_reporte == "financiero_diario":
+            print(f"DEBUG: Cargando reporte financiero diario")
+            content_ref.current.content = create_reporte_financiero(tipo="diario")
+        elif tipo_reporte == "financiero_mensual":
+            print(f"DEBUG: Cargando reporte financiero mensual")
+            content_ref.current.content = create_reporte_financiero(tipo="mensual")
+        elif tipo_reporte == "financiero_anual":
+            print(f"DEBUG: Cargando reporte financiero anual")
+            content_ref.current.content = create_reporte_financiero(tipo="anual")
+        elif tipo_reporte == "egresos_categoria":
+            print(f"DEBUG: Cargando reporte de egresos por categoría")
+            content_ref.current.content = create_reporte_egresos_categoria()
 
+        # Actualizar botones
+        actualizar_botones()
+        # Actualizar página
+        content_ref.current.update()
         page.update()
 
-    # Tabs
-    tabs = ft.Tabs(
-        selected_index=0,
-        on_change=cambiar_tab,
-        tabs=[
-            ft.Tab(
-                text="Reportes de Pagos",
-                icon=ft.Icons.PAYMENT,
-            ),
-            ft.Tab(
-                text="Reportes de Clientes",
-                icon=ft.Icons.PEOPLE,
-            ),
-            ft.Tab(
-                text="Reportes de Asistencias",
-                icon=ft.Icons.FITNESS_CENTER,
-            ),
-        ],
-        indicator_color=Theme.PRIMARY,
-        label_color=Theme.PRIMARY,
-        unselected_label_color=Theme.TEXT_SECONDARY,
-    )
+    def create_mensaje_desarrollo(titulo):
+        """Mensaje para reportes en desarrollo"""
+        return create_card_container(
+            content=ft.Column([
+                ft.Icon(ft.Icons.CONSTRUCTION, size=64, color=Theme.WARNING),
+                ft.Text(titulo, size=Theme.FONT_SIZE["xl"], weight=Theme.FONT_WEIGHT["bold"]),
+                ft.Text("Este reporte estará disponible próximamente",
+                       size=Theme.FONT_SIZE["md"], color=Theme.TEXT_SECONDARY),
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=20),
+            padding=80
+        )
 
-    # Contenedor principal de tabs
-    tabs_container = create_card_container(
-        content=tabs,
-        padding=0
+    def create_boton_reporte(texto, icono, tipo_reporte, color=Theme.PRIMARY):
+        """Crear botón para seleccionar reporte"""
+        es_activo = reporte_actual[0] == tipo_reporte
+        boton_ref = ft.Ref[ft.Container]()
+        botones_refs[tipo_reporte] = boton_ref
+
+        return ft.Container(
+            ref=boton_ref,
+            content=ft.Column([
+                ft.Icon(icono, size=32, color="white" if es_activo else color),
+                ft.Text(
+                    texto,
+                    size=Theme.FONT_SIZE["xs"],
+                    color="white" if es_activo else Theme.TEXT_PRIMARY,
+                    text_align=ft.TextAlign.CENTER,
+                    weight=Theme.FONT_WEIGHT["bold"] if es_activo else Theme.FONT_WEIGHT["medium"]
+                ),
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=6),
+            bgcolor=color if es_activo else f"{color}15",
+            padding=12,
+            border_radius=Theme.RADIUS["md"],
+            border=ft.border.all(2, color if es_activo else f"{color}30"),
+            on_click=lambda _: cambiar_reporte(tipo_reporte),
+            expand=True
+        )
+
+    # Panel de botones de reportes
+    botones_panel = create_card_container(
+        content=ft.Column([
+            # Header
+            ft.Row([
+                ft.Icon(ft.Icons.ASSESSMENT, size=28, color=Theme.PRIMARY),
+                ft.Text("Selecciona un Reporte",
+                       size=Theme.FONT_SIZE["xl"],
+                       weight=Theme.FONT_WEIGHT["bold"],
+                       color=Theme.TEXT_PRIMARY),
+            ], spacing=12),
+            ft.Divider(height=1, color=Theme.BORDER_DEFAULT),
+
+            # SECCIÓN: REPORTES DE PAGOS
+            ft.Text("💳 Reportes de Pagos",
+                   size=Theme.FONT_SIZE["md"],
+                   weight=Theme.FONT_WEIGHT["bold"],
+                   color=Theme.PRIMARY),
+            ft.Row([
+                create_boton_reporte("Pagos Día", ft.Icons.TODAY, "pagos_dia", Theme.PRIMARY),
+                create_boton_reporte("Pagos Semana", ft.Icons.DATE_RANGE, "pagos_semana", Theme.PRIMARY),
+                create_boton_reporte("Pagos Mes", ft.Icons.CALENDAR_MONTH, "pagos_mes", Theme.PRIMARY),
+                create_boton_reporte("Pagos Año", ft.Icons.CALENDAR_TODAY, "pagos_anio", Theme.PRIMARY),
+            ], spacing=8),
+
+            ft.Container(height=12),
+
+            # SECCIÓN: REPORTES DE CLIENTES
+            ft.Text("👥 Reportes de Clientes",
+                   size=Theme.FONT_SIZE["md"],
+                   weight=Theme.FONT_WEIGHT["bold"],
+                   color=Theme.INFO),
+            ft.Row([
+                create_boton_reporte("General", ft.Icons.PEOPLE, "clientes_general", Theme.INFO),
+                create_boton_reporte("Nuevos", ft.Icons.PERSON_ADD, "clientes_nuevos", Theme.INFO),
+                create_boton_reporte("Vencidas", ft.Icons.EVENT_BUSY, "clientes_vencidas", Theme.INFO),
+                create_boton_reporte("Por Vencer", ft.Icons.NOTIFICATION_IMPORTANT, "clientes_por_vencer", Theme.INFO),
+            ], spacing=8),
+
+            ft.Container(height=12),
+
+            # SECCIÓN: REPORTES DE ASISTENCIAS
+            ft.Text("💪 Reportes de Asistencias",
+                   size=Theme.FONT_SIZE["md"],
+                   weight=Theme.FONT_WEIGHT["bold"],
+                   color=Theme.SUCCESS),
+            ft.Row([
+                create_boton_reporte("Asistencias", ft.Icons.FITNESS_CENTER, "asistencias", Theme.SUCCESS),
+            ], spacing=8),
+
+            ft.Divider(height=1, color=Theme.BORDER_DEFAULT),
+
+            # SECCIÓN: REPORTES FINANCIEROS (HORIZONTAL)
+            ft.Text("📊 Reportes Financieros",
+                   size=Theme.FONT_SIZE["md"],
+                   weight=Theme.FONT_WEIGHT["bold"],
+                   color=Theme.WARNING),
+            ft.Row([
+                create_boton_reporte("Financiero Diario", ft.Icons.MONETIZATION_ON, "financiero_diario", Theme.WARNING),
+                create_boton_reporte("Financiero Mensual", ft.Icons.ACCOUNT_BALANCE_WALLET, "financiero_mensual", Theme.WARNING),
+                create_boton_reporte("Financiero Anual", ft.Icons.TRENDING_UP, "financiero_anual", Theme.WARNING),
+                create_boton_reporte("Egresos Categoría", ft.Icons.CATEGORY, "egresos_categoria", Theme.WARNING),
+            ], spacing=8),
+        ], spacing=8),
+        padding=Theme.SPACING["lg"]
     )
 
     # Contenedor de contenido
@@ -784,10 +1135,10 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
 
     # Layout completo
     content = ft.Column([
-        tabs_container,
-        ft.Container(height=Theme.SPACING["lg"]),
+        botones_panel,
+        ft.Container(height=Theme.SPACING["md"]),
         content_container,
-    ], spacing=0, expand=True)
+    ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO)
 
     # Usar base_layout
     create_base_layout(
