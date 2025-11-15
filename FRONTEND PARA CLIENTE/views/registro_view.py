@@ -1,5 +1,5 @@
 """
-Vista de Registro de Nuevos Clientes
+Vista de Registro de Nuevos Clientes - REDISEÑADA PARA TABLET
 Flujo completo: datos personales → selección de membresía → confirmación → registro
 """
 import flet as ft
@@ -9,13 +9,14 @@ import os
 # Agregar paths
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config.theme import Theme
-from config.settings import USUARIO_SISTEMA, API_BASE_URL
+from config.settings import USUARIO_SISTEMA, API_BASE_URL, BACKGROUND_IMAGE
 from components.buttons import create_large_button, create_back_button, create_success_button
 from components.inputs import create_text_input, create_dni_input, create_phone_input, create_email_input
 from components.cards import create_card_container, create_info_card, create_alert_card
 from components.membership_card import create_membership_card
 from services.api_service import APIService
 from services.websocket_service import enviar_notificacion_async
+from utils.datetime_utils import parse_datetime_from_api, format_date_display
 
 
 def show_registro_view(page: ft.Page, api_service: APIService, on_back):
@@ -110,9 +111,9 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
         nonlocal opciones_membresias, metodos_pago
 
         try:
-            print("🔄 Cargando opciones de registro...")
+            print("Cargando opciones de registro...")
             opciones = api_service.get_opciones_registro()
-            print(f"📦 Opciones recibidas: {opciones}")
+            print(f"Opciones recibidas: {opciones}")
 
             # Limpiar y actualizar las listas (no reasignar)
             opciones_membresias.clear()
@@ -139,8 +140,8 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
                 metodos_permitidos = ["Efectivo", "Yape"]
             metodos_pago.extend(metodos_permitidos)
 
-            print(f"✅ Membresías cargadas: {len(opciones_membresias)}")
-            print(f"✅ Métodos de pago: {metodos_pago}")
+            print(f"Membresias cargadas: {len(opciones_membresias)}")
+            print(f"Metodos de pago: {metodos_pago}")
 
             if not opciones_membresias:
                 mostrar_error("No se pudieron cargar las opciones de membresía. Verifica que el backend esté funcionando.")
@@ -149,7 +150,7 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
             return True
 
         except Exception as e:
-            print(f"❌ Error al cargar opciones: {e}")
+            print(f"ERROR - Error al cargar opciones: {e}")
             import traceback
             traceback.print_exc()
             mostrar_error(f"Error al cargar opciones: {str(e)}\n\nVerifica que el backend esté en ejecución.")
@@ -175,20 +176,20 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
 
     def ir_a_paso2(e):
         """Avanzar al Paso 2: Selección de membresía"""
-        print("🚀 Iniciando paso 2...")
+        print("Iniciando paso 2...")
 
-        print("✅ Paso 1: Validando datos...")
+        print("Paso 1: Validando datos...")
         if not validar_paso1():
-            print("❌ Validación del paso 1 falló")
+            print("ERROR - Validacion del paso 1 fallo")
             return
 
-        print("✅ Paso 2: Verificando DNI disponible...")
+        print("Paso 2: Verificando DNI disponible...")
         # Verificar DNI disponible
         if not verificar_dni_disponible():
-            print("❌ DNI no disponible")
+            print("ERROR - DNI no disponible")
             return
 
-        print("✅ Paso 3: Guardando datos del formulario...")
+        print("Paso 3: Guardando datos del formulario...")
         # Guardar datos del paso 1
         form_data["dni"] = dni_input.value
         form_data["nombre"] = nombre_input.value.strip()
@@ -196,20 +197,20 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
         form_data["correo"] = correo_input.value.strip()
         form_data["telefono"] = telefono_input.value
 
-        print("✅ Paso 4: Cargando opciones de registro...")
+        print("Paso 4: Cargando opciones de registro...")
         # Cargar opciones
         if not cargar_opciones_registro():
-            print("❌ Error al cargar opciones de registro")
+            print("ERROR - Error al cargar opciones de registro")
             return
 
-        print("✅ Paso 5: Cambiando a paso 2...")
+        print("Paso 5: Cambiando a paso 2...")
         # Mostrar paso 2
         paso_actual.current = 2
-        print(f"✅ paso_actual.current = {paso_actual.current}")
+        print(f"OK - paso_actual.current = {paso_actual.current}")
 
-        print("✅ Paso 6: Actualizando vista...")
+        print("Paso 6: Actualizando vista...")
         actualizar_vista()
-        print("✅ ¡Paso 2 debería estar visible ahora!")
+        print("OK - Paso 2 deberia estar visible ahora!")
 
     def seleccionar_membresia(membresia_id: int):
         """Seleccionar una membresía"""
@@ -265,10 +266,10 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
                 usuario_creacion=USUARIO_SISTEMA
             )
 
-            print(f"📥 Resultado del registro: {resultado}")
+            print(f"Resultado del registro: {resultado}")
 
             if resultado.get("registrado", False):
-                print("✅ Cliente registrado exitosamente")
+                print("OK - Cliente registrado exitosamente")
 
                 # Enviar notificación WebSocket al admin (en segundo plano)
                 try:
@@ -314,7 +315,7 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
                 mostrar_error(resultado.get("mensaje", "Error al registrar cliente"))
 
         except Exception as e:
-            print(f"❌ Error al registrar: {e}")
+            print(f"ERROR - Error al registrar: {e}")
             import traceback
             traceback.print_exc()
             mostrar_error(f"Error al registrar: {str(e)}")
@@ -323,70 +324,132 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
         """Mostrar pantalla de registro exitoso"""
         cliente = resultado.get("cliente", {})
         pago_info = resultado.get("pago", {})
+        membresia_info = resultado.get("membresia", {})
         metodo_pago = form_data.get("metodo_pago", "Efectivo")
 
+        # DEBUG: Imprimir lo que viene del backend
+        print(f"🔍 DEBUG - Resultado completo: {resultado}")
+        print(f"🔍 DEBUG - Cliente: {cliente}")
+        print(f"🔍 DEBUG - Membresia info del backend: {membresia_info}")
+
+        # Procesar fecha de membresía usando utilidades
+        fecha_membresia_dt = parse_datetime_from_api(cliente.get('fecha_membresia', ''))
+        fecha_membresia = format_date_display(fecha_membresia_dt) if fecha_membresia_dt else "Sin fecha"
+
+        # Obtener nombre de membresía - primero del backend, luego de la selección local
+        nombre_membresia = (
+            membresia_info.get('nombre_membresia') or
+            membresia_info.get('nombre') or
+            # Fallback: buscar en la lista local
+            next((m.get('nombre') or m.get('nombre_membresia', 'Membresía')
+                  for m in opciones_membresias if m["id"] == form_data["id_membresia"]), 'Membresía')
+        )
+
+        print(f"🔍 DEBUG - Nombre de membresía final: {nombre_membresia}")
+
         contenido_exito = ft.Column([
-            # Ícono de éxito
+            # Ícono de éxito grande y moderno
             ft.Container(
                 content=ft.Icon(
-                    ft.Icons.CHECK_CIRCLE,
-                    size=Theme.ICON_SIZE["2xl"] * 2,
+                    ft.Icons.CHECK_CIRCLE_ROUNDED,
+                    size=Theme.ICON_SIZE["2xl"],
                     color=Theme.SUCCESS
                 ),
+                width=120,
+                height=120,
+                bgcolor="#1A1A1A",
+                border_radius=60,
+                border=ft.border.all(4, Theme.SUCCESS),
                 alignment=ft.alignment.center,
+                shadow=Theme.get_shadow("lg"),
             ),
 
-            ft.Container(height=Theme.SPACING["2xl"]),
+            ft.Container(height=Theme.SPACING["lg"]),
 
             # Título
             ft.Text(
-                "¡Registro Exitoso!",
-                size=Theme.FONT_SIZE["5xl"],
-                weight=Theme.FONT_WEIGHT["bold"],
+                "¡REGISTRO EXITOSO!",
+                size=Theme.FONT_SIZE["4xl"],
+                weight=Theme.FONT_WEIGHT["extrabold"],
                 color=Theme.SUCCESS,
                 text_align=ft.TextAlign.CENTER
             ),
 
             ft.Text(
                 f"Bienvenido, {cliente.get('nombre', '')} {cliente.get('apellidos', '')}",
-                size=Theme.FONT_SIZE["2xl"],
+                size=Theme.FONT_SIZE["xl"],
+                weight=Theme.FONT_WEIGHT["medium"],
                 color=Theme.TEXT_PRIMARY,
                 text_align=ft.TextAlign.CENTER
             ),
 
             ft.Container(height=Theme.SPACING["xl"]),
 
-            # Información del cliente
-            create_card_container(
+            # Información del cliente con diseño mejorado
+            ft.Container(
                 content=ft.Column([
-                    ft.Text("Información de Registro", size=Theme.FONT_SIZE["xl"],
-                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY),
-                    ft.Divider(color=Theme.BORDER_DEFAULT),
-                    ft.Text(f"DNI: {cliente.get('dni', '')}", size=Theme.FONT_SIZE["lg"]),
-                    ft.Text(f"Membresía: {resultado.get('membresia', {}).get('nombre', '')}", size=Theme.FONT_SIZE["lg"]),
-                    ft.Text(f"Válida hasta: {cliente.get('fecha_membresia', '')}", size=Theme.FONT_SIZE["lg"]),
-                    ft.Text(f"Método de pago: {metodo_pago}", size=Theme.FONT_SIZE["lg"],
-                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.PRIMARY),
-                ], spacing=Theme.SPACING["sm"]),
-                width=500
+                    ft.Text(
+                        "Información de Registro",
+                        size=Theme.FONT_SIZE["xl"],
+                        weight=Theme.FONT_WEIGHT["bold"],
+                        color=Theme.PRIMARY,
+                        text_align=ft.TextAlign.CENTER
+                    ),
+                    ft.Container(height=Theme.SPACING["md"]),
+                    ft.Row([
+                        ft.Icon(ft.Icons.BADGE_ROUNDED, color=Theme.PRIMARY, size=28),
+                        ft.Text(f"DNI: {cliente.get('dni', '')}", size=Theme.FONT_SIZE["lg"]),
+                    ], spacing=Theme.SPACING["sm"]),
+                    ft.Row([
+                        ft.Icon(ft.Icons.CARD_MEMBERSHIP_ROUNDED, color=Theme.SUCCESS, size=28),
+                        ft.Text(f"Membresía: {nombre_membresia}",
+                               size=Theme.FONT_SIZE["lg"]),
+                    ], spacing=Theme.SPACING["sm"]),
+                    ft.Row([
+                        ft.Icon(ft.Icons.CALENDAR_TODAY_ROUNDED, color=Theme.SUCCESS, size=28),
+                        ft.Text(f"Válida hasta: {fecha_membresia}",
+                               size=Theme.FONT_SIZE["lg"],
+                               weight=Theme.FONT_WEIGHT["semibold"],
+                               color=Theme.SUCCESS),
+                    ], spacing=Theme.SPACING["sm"]),
+                    ft.Divider(color=Theme.BORDER_LIGHT, height=15),
+                    ft.Row([
+                        ft.Icon(ft.Icons.PAYMENT_ROUNDED, color=Theme.PRIMARY, size=28),
+                        ft.Text(f"Método de pago: {metodo_pago}",
+                               size=Theme.FONT_SIZE["lg"],
+                               weight=Theme.FONT_WEIGHT["bold"],
+                               color=Theme.PRIMARY),
+                    ], spacing=Theme.SPACING["sm"]),
+                ], spacing=Theme.SPACING["md"]),
+                padding=Theme.SPACING["xl"],
+                bgcolor=Theme.CARD_BG,
+                border_radius=Theme.RADIUS["xl"],
+                border=ft.border.all(2, Theme.BORDER_LIGHT),
+                shadow=Theme.get_shadow("lg"),
+                width=600,
             ),
+
+            ft.Container(height=Theme.SPACING["xl"]),
 
             # Alerta de confirmación pendiente (PARA AMBOS: Yape y Efectivo)
             create_alert_card(
-                f"⚠️ PAGO CON {metodo_pago.upper()} - CONFIRMACIÓN PENDIENTE\n\n"
+                f"PAGO CON {metodo_pago.upper()} - CONFIRMACION PENDIENTE\n\n"
                 "El personal del gimnasio ha sido notificado. "
-                "Por favor, espera la confirmación del pago por parte del administrador.",
+                "Por favor, espera la confirmacion del pago por parte del administrador.",
                 "warning"
             ),
 
-            ft.Container(height=Theme.SPACING["2xl"]),
+            ft.Container(height=Theme.SPACING["xl"]),
 
-            # Botón volver
-            create_large_button(
-                "Finalizar",
-                lambda e: on_back(),
-                icon=ft.Icons.HOME,
-                bgcolor=Theme.SUCCESS
+            # Botón volver mejorado
+            ft.Container(
+                content=create_large_button(
+                    "Finalizar",
+                    lambda e: on_back(),
+                    icon=ft.Icons.HOME_ROUNDED,
+                    bgcolor=Theme.SUCCESS
+                ),
+                width=280,
             )
 
         ],
@@ -394,14 +457,47 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
             spacing=Theme.SPACING["md"]
         )
 
+        # Layout con background
+        background_existe = os.path.exists(BACKGROUND_IMAGE)
+
+        if background_existe:
+            main_container = ft.Stack([
+                ft.Image(
+                    src=BACKGROUND_IMAGE,
+                    fit=ft.ImageFit.COVER,
+                    width=float('inf'),
+                    height=float('inf'),
+                ),
+                ft.Container(
+                    bgcolor=Theme.OVERLAY_DARK,
+                    expand=True,
+                ),
+                ft.Container(
+                    content=ft.Column(
+                        [contenido_exito],
+                        scroll=ft.ScrollMode.AUTO,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                    ),
+                    padding=Theme.SPACING["3xl"],
+                    expand=True,
+                    alignment=ft.alignment.center
+                ),
+            ], expand=True)
+        else:
+            main_container = ft.Container(
+                content=ft.Column(
+                    [contenido_exito],
+                    scroll=ft.ScrollMode.AUTO,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                ),
+                padding=Theme.SPACING["3xl"],
+                bgcolor=Theme.BACKGROUND_DARK,
+                expand=True,
+                alignment=ft.alignment.center
+            )
+
         page.controls.clear()
-        page.add(ft.Container(
-            content=contenido_exito,
-            padding=Theme.SPACING["5xl"],
-            bgcolor=Theme.BACKGROUND_DARK,
-            expand=True,
-            alignment=ft.alignment.center
-        ))
+        page.add(main_container)
         page.update()
 
     def build_paso1():
@@ -440,9 +536,9 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
 
     def build_paso2():
         """Construir vista del Paso 2: Selección de membresía"""
-        print(f"🏗️ Construyendo paso 2...")
-        print(f"📋 Membresías disponibles: {len(opciones_membresias)}")
-        print(f"📋 Datos: {opciones_membresias}")
+        print(f"Construyendo paso 2...")
+        print(f"Membresias disponibles: {len(opciones_membresias)}")
+        print(f"Datos: {opciones_membresias}")
 
         # Cards de membresías
         membresias_cards = []
@@ -468,7 +564,7 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
                 )
                 membresias_cards.append(card)
 
-        # Botones de método de pago (más grandes y visibles)
+        # Botones de método de pago (estilo formulario con grises)
         metodos_buttons = []
         for metodo in metodos_pago:
             seleccionado = form_data["metodo_pago"] == metodo
@@ -476,29 +572,33 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
             # Ícono según método
             icono = ft.Icons.PAYMENT if metodo == "Yape" else ft.Icons.MONEY
 
+            # Colores grises del formulario (como los inputs)
+            border_color = Theme.PRIMARY if seleccionado else Theme.BORDER_DEFAULT
+            bg_color = Theme.CARD_BG  # Mismo fondo que los inputs
+
             btn = ft.Container(
                 content=ft.Column([
                     ft.Icon(
                         icono,
                         size=48,
-                        color=ft.Colors.WHITE if seleccionado else Theme.PRIMARY
+                        color=Theme.PRIMARY if seleccionado else Theme.TEXT_SECONDARY
                     ),
                     ft.Text(
                         metodo,
                         size=Theme.FONT_SIZE["2xl"],
                         weight=Theme.FONT_WEIGHT["bold"],
-                        color=ft.Colors.WHITE if seleccionado else Theme.TEXT_PRIMARY
+                        color=Theme.TEXT_PRIMARY if seleccionado else Theme.TEXT_SECONDARY
                     ),
                     ft.Icon(
-                        ft.Icons.CHECK_CIRCLE,
+                        ft.Icons.CHECK_CIRCLE_ROUNDED,
                         size=24,
-                        color="#4CAF50",
+                        color=Theme.PRIMARY,
                         visible=seleccionado
                     )
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=Theme.SPACING["sm"]),
-                bgcolor=Theme.PRIMARY if seleccionado else Theme.CARD_BG,
-                border=ft.border.all(3 if seleccionado else 2, Theme.PRIMARY),
-                border_radius=Theme.RADIUS["xl"],
+                bgcolor=bg_color,
+                border=ft.border.all(2 if not seleccionado else 3, border_color),
+                border_radius=Theme.RADIUS["lg"],
                 padding=Theme.SPACING["2xl"],
                 width=200,
                 animate=200,
@@ -552,48 +652,124 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
         # Obtener membresía seleccionada
         membresia_sel = next((m for m in opciones_membresias if m["id"] == form_data["id_membresia"]), {})
 
+        # Layout en dos columnas para mejor organización
+        columna_izquierda = ft.Column([
+            # Datos Personales
+            ft.Container(
+                content=ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.Icons.PERSON_ROUNDED, color=Theme.PRIMARY, size=24),
+                        ft.Text("Datos Personales", size=Theme.FONT_SIZE["xl"],
+                               weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY),
+                    ], spacing=Theme.SPACING["sm"]),
+
+                    ft.Container(height=Theme.SPACING["md"]),
+
+                    ft.Text(f"DNI: {form_data['dni']}",
+                           size=Theme.FONT_SIZE["md"],
+                           color=Theme.TEXT_SECONDARY),
+                    ft.Text(f"{form_data['nombre']} {form_data['apellidos']}",
+                           size=Theme.FONT_SIZE["lg"],
+                           weight=Theme.FONT_WEIGHT["semibold"],
+                           color=Theme.TEXT_PRIMARY),
+                    ft.Text(form_data['correo'],
+                           size=Theme.FONT_SIZE["md"],
+                           color=Theme.TEXT_SECONDARY),
+                    ft.Text(form_data['telefono'],
+                           size=Theme.FONT_SIZE["md"],
+                           color=Theme.TEXT_SECONDARY),
+                ], spacing=Theme.SPACING["xs"]),
+                padding=Theme.SPACING["xl"],
+                bgcolor=Theme.CARD_BG,
+                border_radius=Theme.RADIUS["xl"],
+                border=ft.border.all(1, Theme.BORDER_LIGHT),
+                shadow=Theme.get_shadow("md"),
+            ),
+
+            ft.Container(height=Theme.SPACING["lg"]),
+
+            # Método de Pago
+            ft.Container(
+                content=ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.Icons.PAYMENT_ROUNDED, color=Theme.PRIMARY, size=24),
+                        ft.Text("Método de Pago", size=Theme.FONT_SIZE["xl"],
+                               weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY),
+                    ], spacing=Theme.SPACING["sm"]),
+
+                    ft.Container(height=Theme.SPACING["sm"]),
+
+                    ft.Text(form_data['metodo_pago'],
+                           size=Theme.FONT_SIZE["2xl"],
+                           weight=Theme.FONT_WEIGHT["bold"],
+                           color=Theme.PRIMARY),
+                ], spacing=Theme.SPACING["xs"]),
+                padding=Theme.SPACING["xl"],
+                bgcolor=Theme.CARD_BG,
+                border_radius=Theme.RADIUS["xl"],
+                border=ft.border.all(1, Theme.BORDER_LIGHT),
+                shadow=Theme.get_shadow("md"),
+            ),
+        ], spacing=0)
+
+        columna_derecha = ft.Column([
+            # Membresía
+            ft.Container(
+                content=ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.Icons.CARD_MEMBERSHIP_ROUNDED, color=Theme.SUCCESS, size=24),
+                        ft.Text("Membresía", size=Theme.FONT_SIZE["xl"],
+                               weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY),
+                    ], spacing=Theme.SPACING["sm"]),
+
+                    ft.Container(height=Theme.SPACING["lg"]),
+
+                    ft.Text(membresia_sel.get('nombre') or membresia_sel.get('nombre_membresia', 'Membresía'),
+                           size=Theme.FONT_SIZE["2xl"],
+                           weight=Theme.FONT_WEIGHT["bold"],
+                           color=Theme.SUCCESS),
+
+                    ft.Container(height=Theme.SPACING["sm"]),
+
+                    ft.Row([
+                        ft.Text("S/", size=Theme.FONT_SIZE["2xl"], color=Theme.PRIMARY),
+                        ft.Text(f"{membresia_sel.get('precio', 0):.2f}",
+                               size=Theme.FONT_SIZE["5xl"],
+                               weight=Theme.FONT_WEIGHT["extrabold"],
+                               color=Theme.PRIMARY),
+                    ], spacing=Theme.SPACING["xs"], alignment=ft.MainAxisAlignment.CENTER),
+
+                    ft.Container(height=Theme.SPACING["sm"]),
+
+                    ft.Text(f"Duración: {membresia_sel.get('duracion_dias', 30)} días",
+                           size=Theme.FONT_SIZE["md"],
+                           color=Theme.TEXT_SECONDARY,
+                           text_align=ft.TextAlign.CENTER),
+                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=0),
+                padding=Theme.SPACING["2xl"],
+                bgcolor=Theme.CARD_BG,
+                border_radius=Theme.RADIUS["xl"],
+                border=ft.border.all(2, Theme.SUCCESS),
+                shadow=Theme.get_shadow("lg"),
+            ),
+        ], spacing=0)
+
         # Construir elementos de la vista
         elementos_paso3 = [
             ft.Text(
-                "Paso 3: Confirmar Registro",
+                "Confirmar Registro",
                 size=Theme.FONT_SIZE["4xl"],
-                weight=Theme.FONT_WEIGHT["bold"],
+                weight=Theme.FONT_WEIGHT["extrabold"],
                 color=Theme.PRIMARY
             ),
 
-            ft.Container(height=Theme.SPACING["2xl"]),
+            ft.Container(height=Theme.SPACING["xl"]),
 
-            # Resumen completo
-            create_card_container(
-                content=ft.Column([
-                    ft.Text("Resumen de Registro", size=Theme.FONT_SIZE["2xl"],
-                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.PRIMARY),
-                    ft.Divider(color=Theme.BORDER_DEFAULT, thickness=2),
-
-                    ft.Text("Datos Personales:", size=Theme.FONT_SIZE["lg"],
-                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_SECONDARY),
-                    ft.Text(f"DNI: {form_data['dni']}", size=Theme.FONT_SIZE["lg"]),
-                    ft.Text(f"Nombre: {form_data['nombre']} {form_data['apellidos']}", size=Theme.FONT_SIZE["lg"]),
-                    ft.Text(f"Correo: {form_data['correo']}", size=Theme.FONT_SIZE["lg"]),
-                    ft.Text(f"Teléfono: {form_data['telefono']}", size=Theme.FONT_SIZE["lg"]),
-
-                    ft.Divider(color=Theme.BORDER_DEFAULT),
-
-                    ft.Text("Membresía:", size=Theme.FONT_SIZE["lg"],
-                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_SECONDARY),
-                    ft.Text(f"{membresia_sel.get('nombre', '')} - S/ {membresia_sel.get('precio', 0):.2f}",
-                           size=Theme.FONT_SIZE["2xl"], weight=Theme.FONT_WEIGHT["bold"], color=Theme.SUCCESS),
-
-                    ft.Divider(color=Theme.BORDER_DEFAULT),
-
-                    ft.Text("Método de Pago:", size=Theme.FONT_SIZE["lg"],
-                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_SECONDARY),
-                    ft.Text(form_data['metodo_pago'], size=Theme.FONT_SIZE["xl"],
-                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.PRIMARY),
-
-                ], spacing=Theme.SPACING["sm"]),
-                width=600
-            ),
+            # Layout dos columnas
+            ft.Row([
+                ft.Container(content=columna_izquierda, width=380),
+                ft.Container(content=columna_derecha, width=380),
+            ], alignment=ft.MainAxisAlignment.CENTER, spacing=Theme.SPACING["2xl"]),
 
             ft.Container(height=Theme.SPACING["2xl"]),
         ]
@@ -606,36 +782,72 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
             # Verificar si existe el QR
             if os.path.exists(qr_path):
                 elementos_paso3.extend([
-                    create_alert_card(
-                        "💳 PAGO CON YAPE\n\nEscanea el siguiente código QR con tu app de Yape:",
-                        "info"
-                    ),
-                    ft.Container(height=Theme.SPACING["md"]),
-                    ft.Container(
-                        content=ft.Image(
-                            src=qr_path,
-                            width=300,
-                            height=300,
-                            fit=ft.ImageFit.CONTAIN,
+                    # Título simple y limpio
+                    ft.Row([
+                        ft.Icon(ft.Icons.QR_CODE_2_ROUNDED, color=Theme.PRIMARY, size=28),
+                        ft.Text("Escanea para pagar con Yape",
+                               size=Theme.FONT_SIZE["xl"],
+                               weight=Theme.FONT_WEIGHT["bold"],
+                               color=Theme.TEXT_PRIMARY),
+                    ], alignment=ft.MainAxisAlignment.CENTER, spacing=Theme.SPACING["sm"]),
+
+                    ft.Container(height=Theme.SPACING["lg"]),
+
+                    # QR Code minimalista y limpio
+                    ft.Row([
+                        ft.Container(
+                            content=ft.Image(
+                                src=qr_path,
+                                width=280,
+                                height=280,
+                                fit=ft.ImageFit.CONTAIN,
+                            ),
+                            bgcolor="#FFFFFF",
+                            border_radius=Theme.RADIUS["lg"],
+                            padding=Theme.SPACING["lg"],
+                            alignment=ft.alignment.center,
+                            shadow=Theme.get_shadow("lg"),
+                            width=320,
+                            height=320,
                         ),
-                        bgcolor=Theme.CARD_BG,
-                        border_radius=Theme.RADIUS["xl"],
-                        padding=Theme.SPACING["xl"],
-                        border=ft.border.all(2, Theme.PRIMARY),
-                        alignment=ft.alignment.center
-                    ),
-                    ft.Container(height=Theme.SPACING["md"]),
-                    create_alert_card(
-                        f"Monto a pagar: S/ {membresia_sel.get('precio', 0):.2f}\n\nDespués de realizar el pago, haz clic en 'Confirmar Registro'",
-                        "warning"
-                    ),
+                    ], alignment=ft.MainAxisAlignment.CENTER),
+
+                    ft.Container(height=Theme.SPACING["lg"]),
+
+                    # Monto simple
+                    ft.Row([
+                        ft.Text("Monto:",
+                               size=Theme.FONT_SIZE["lg"],
+                               color=Theme.TEXT_SECONDARY),
+                        ft.Text(f"S/ {membresia_sel.get('precio', 0):.2f}",
+                               size=Theme.FONT_SIZE["3xl"],
+                               weight=Theme.FONT_WEIGHT["extrabold"],
+                               color=Theme.PRIMARY),
+                    ], alignment=ft.MainAxisAlignment.CENTER, spacing=Theme.SPACING["sm"]),
+
                     ft.Container(height=Theme.SPACING["xl"]),
                 ])
             else:
                 elementos_paso3.extend([
-                    create_alert_card(
-                        "⚠️ QR de Yape no disponible\n\nPor favor, realiza el pago directamente con el personal del gimnasio.",
-                        "warning"
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Icon(ft.Icons.WARNING_ROUNDED, color=Theme.WARNING, size=36),
+                            ft.Container(height=Theme.SPACING["sm"]),
+                            ft.Text("QR de Yape no disponible",
+                                   size=Theme.FONT_SIZE["lg"],
+                                   weight=Theme.FONT_WEIGHT["semibold"],
+                                   color=Theme.TEXT_PRIMARY,
+                                   text_align=ft.TextAlign.CENTER),
+                            ft.Container(height=Theme.SPACING["xs"]),
+                            ft.Text("Realiza el pago con el personal",
+                                   size=Theme.FONT_SIZE["md"],
+                                   color=Theme.TEXT_SECONDARY,
+                                   text_align=ft.TextAlign.CENTER),
+                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=0),
+                        padding=Theme.SPACING["xl"],
+                        bgcolor=Theme.CARD_BG,
+                        border_radius=Theme.RADIUS["lg"],
+                        border=ft.border.all(1, Theme.BORDER_LIGHT),
                     ),
                     ft.Container(height=Theme.SPACING["xl"]),
                 ])
@@ -653,63 +865,116 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
 
     def actualizar_vista():
         """Actualizar la vista según el paso actual"""
-        print(f"📺 actualizar_vista() llamada. Paso actual: {paso_actual.current}")
+        print(f"actualizar_vista() llamada. Paso actual: {paso_actual.current}")
+
+        # Verificar si existe el background
+        background_existe = os.path.exists(BACKGROUND_IMAGE)
 
         if paso_actual.current == 1:
-            print("📺 Renderizando PASO 1")
+            print("Renderizando PASO 1")
             btn_siguiente.on_click = ir_a_paso2
             paso1_container.content = build_paso1()
+
+            contenido_paso = ft.Column(
+                [paso1_container],
+                scroll=ft.ScrollMode.AUTO,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER
+            )
+
+            if background_existe:
+                main_container = ft.Stack([
+                    ft.Image(
+                        src=BACKGROUND_IMAGE,
+                        fit=ft.ImageFit.COVER,
+                        width=float('inf'),
+                        height=float('inf'),
+                    ),
+                    ft.Container(bgcolor=Theme.OVERLAY_DARK, expand=True),
+                    ft.Container(content=contenido_paso, padding=Theme.SPACING["4xl"], expand=True, alignment=ft.alignment.center),
+                ], expand=True)
+            else:
+                main_container = ft.Container(
+                    content=contenido_paso,
+                    padding=Theme.SPACING["4xl"],
+                    bgcolor=Theme.BACKGROUND_DARK,
+                    expand=True,
+                    alignment=ft.alignment.center
+                )
+
             page.controls.clear()
-            page.add(ft.Container(
-                content=ft.Column(
-                    [paso1_container],
-                    scroll=ft.ScrollMode.AUTO,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
-                ),
-                padding=Theme.SPACING["5xl"],
-                bgcolor=Theme.BACKGROUND_DARK,
-                expand=True,
-                alignment=ft.alignment.top_center
-            ))
+            page.add(main_container)
 
         elif paso_actual.current == 2:
-            print("📺 Renderizando PASO 2")
+            print("Renderizando PASO 2")
             paso2_container.content = build_paso2()
+
+            contenido_paso = ft.Column(
+                [paso2_container],
+                scroll=ft.ScrollMode.AUTO,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER
+            )
+
+            if background_existe:
+                main_container = ft.Stack([
+                    ft.Image(
+                        src=BACKGROUND_IMAGE,
+                        fit=ft.ImageFit.COVER,
+                        width=float('inf'),
+                        height=float('inf'),
+                    ),
+                    ft.Container(bgcolor=Theme.OVERLAY_DARK, expand=True),
+                    ft.Container(content=contenido_paso, padding=Theme.SPACING["4xl"], expand=True, alignment=ft.alignment.center),
+                ], expand=True)
+            else:
+                main_container = ft.Container(
+                    content=contenido_paso,
+                    padding=Theme.SPACING["4xl"],
+                    bgcolor=Theme.BACKGROUND_DARK,
+                    expand=True,
+                    alignment=ft.alignment.center
+                )
+
             page.controls.clear()
-            # Agregar scroll para que se vean los métodos de pago y botones
-            page.add(ft.Container(
-                content=ft.Column(
-                    [paso2_container],
-                    scroll=ft.ScrollMode.AUTO,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
-                ),
-                padding=Theme.SPACING["5xl"],
-                bgcolor=Theme.BACKGROUND_DARK,
-                expand=True,
-                alignment=ft.alignment.top_center
-            ))
-            print("📺 Paso 2 agregado a la página")
+            page.add(main_container)
+            print("Paso 2 agregado a la pagina")
 
         elif paso_actual.current == 3:
-            print("📺 Renderizando PASO 3")
+            print("Renderizando PASO 3")
             btn_registrar.on_click = confirmar_registro
             paso3_container.content = build_paso3()
-            page.controls.clear()
-            page.add(ft.Container(
-                content=ft.Column(
-                    [paso3_container],
-                    scroll=ft.ScrollMode.AUTO,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
-                ),
-                padding=Theme.SPACING["5xl"],
-                bgcolor=Theme.BACKGROUND_DARK,
-                expand=True,
-                alignment=ft.alignment.top_center
-            ))
 
-        print("📺 Llamando a page.update()...")
+            contenido_paso = ft.Column(
+                [paso3_container],
+                scroll=ft.ScrollMode.AUTO,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER
+            )
+
+            if background_existe:
+                main_container = ft.Stack([
+                    ft.Image(
+                        src=BACKGROUND_IMAGE,
+                        fit=ft.ImageFit.COVER,
+                        width=float('inf'),
+                        height=float('inf'),
+                    ),
+                    ft.Container(bgcolor=Theme.OVERLAY_DARK, expand=True),
+                    ft.Container(content=contenido_paso, padding=Theme.SPACING["4xl"], expand=True, alignment=ft.alignment.center),
+                ], expand=True)
+            else:
+                main_container = ft.Container(
+                    content=contenido_paso,
+                    padding=Theme.SPACING["4xl"],
+                    bgcolor=Theme.BACKGROUND_DARK,
+                    expand=True,
+                    alignment=ft.alignment.center
+                )
+
+            page.controls.clear()
+            page.add(main_container)
+
+        print("Llamando a page.update()...")
         page.update()
-        print("📺 page.update() completado")
+        print("page.update() completado")
 
     # Mostrar paso 1 inicialmente
     actualizar_vista()

@@ -220,7 +220,7 @@ def create_alert_card(
     icon=None
 ):
     """
-    Crear tarjeta de alerta
+    Crear tarjeta de alerta minimalista
 
     Args:
         message: Mensaje de la alerta
@@ -228,29 +228,25 @@ def create_alert_card(
         icon: Ícono personalizado (opcional)
 
     Returns:
-        Card de alerta con colores apropiados
+        Card de alerta minimalista sin colores de fondo
     """
     # Configuración por tipo
     config = {
         "success": {
             "color": Theme.SUCCESS,
-            "icon": icon or ft.Icons.CHECK_CIRCLE,
-            "bg_opacity": "22"
+            "icon": icon or ft.Icons.CHECK_CIRCLE_OUTLINE_ROUNDED,
         },
         "warning": {
             "color": Theme.WARNING,
-            "icon": icon or ft.Icons.WARNING,
-            "bg_opacity": "22"
+            "icon": icon or ft.Icons.WARNING_AMBER_ROUNDED,
         },
         "error": {
             "color": Theme.ERROR,
-            "icon": icon or ft.Icons.ERROR,
-            "bg_opacity": "22"
+            "icon": icon or ft.Icons.ERROR_OUTLINE_ROUNDED,
         },
         "info": {
-            "color": Theme.INFO,
-            "icon": icon or ft.Icons.INFO,
-            "bg_opacity": "22"
+            "color": Theme.TEXT_SECONDARY,
+            "icon": icon or ft.Icons.INFO_OUTLINE_ROUNDED,
         }
     }
 
@@ -260,19 +256,20 @@ def create_alert_card(
         content=ft.Row([
             ft.Icon(
                 cfg["icon"],
-                size=Theme.ICON_SIZE["lg"],
+                size=24,
                 color=cfg["color"]
             ),
             ft.Text(
                 message,
-                size=Theme.FONT_SIZE["xl"],
+                size=Theme.FONT_SIZE["lg"],
                 color=Theme.TEXT_PRIMARY,
                 weight=Theme.FONT_WEIGHT["medium"],
                 expand=True
             ),
-        ], spacing=Theme.SPACING["lg"]),
-        bgcolor=f"{cfg['color']}{cfg['bg_opacity']}",
-        border=ft.border.all(2, cfg["color"]),
+        ], spacing=Theme.SPACING["md"]),
+        bgcolor=Theme.CARD_BG,
+        border=ft.border.all(1, Theme.BORDER_LIGHT),
         border_radius=Theme.RADIUS["lg"],
         padding=Theme.SPACING["xl"],
+        shadow=Theme.get_shadow("sm"),
     )

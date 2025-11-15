@@ -70,17 +70,17 @@ def main(page: ft.Page):
     # ==================== INICIALIZACIÓN ====================
 
     def verificar_conexion_backend():
-        """Verificar conexión con el backend al inicio"""
+        """Verificar conexion con el backend al inicio"""
         try:
             if api_service.health_check():
-                print("✅ Conexión con el backend establecida")
+                print("OK - Conexion con el backend establecida")
                 return True
             else:
-                print("⚠️ No se pudo conectar con el backend")
+                print("WARNING - No se pudo conectar con el backend")
                 mostrar_error_conexion()
                 return False
         except Exception as e:
-            print(f"❌ Error al verificar conexión con backend: {e}")
+            print(f"ERROR - Error al verificar conexion con backend: {e}")
             mostrar_error_conexion()
             return False
 

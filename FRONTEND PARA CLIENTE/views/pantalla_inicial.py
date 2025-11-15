@@ -1,7 +1,7 @@
 """
-Vista de Pantalla Inicial
+Vista de Pantalla Inicial - REDISEÑADA PARA TABLET - RESPONSIVE & MODERNA
 Muestra dos opciones principales: Registrarse o Marcar Asistencia
-Diseño adaptado del client_login del frontend principal
+Diseño moderno con background personalizado y efectos visuales premium
 """
 import flet as ft
 import sys
@@ -10,6 +10,7 @@ import os
 # Agregar paths
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config.theme import Theme
+from config.settings import BACKGROUND_IMAGE
 
 
 def show_pantalla_inicial(page: ft.Page, on_navigate):
@@ -32,201 +33,321 @@ def show_pantalla_inicial(page: ft.Page, on_navigate):
         on_navigate("asistencia")
 
 
-    # ==================== FORMULARIO FLOTANTE (DERECHA) ====================
+    # ==================== TARJETAS DE ACCIÓN MINIMAL & MODERNA ====================
 
-    # Botón Registrarse (responsive)
-    btn_registro = ft.Container(
+    # Rutas de imágenes personalizadas
+    img_registro_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "img", "HOVER_REGISTRO.png")
+    img_asistencia_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "img", "HOVER_ASISTENCIA.png")
+
+    # Color verde (SUCCESS) para bordes
+    verde_border = "rgba(76, 175, 80, 0.6)"  # Verde translúcido para borde
+    verde_lima_solido = "#9FFF33"  # Verde lima sólido para texto
+    verde_success = Theme.SUCCESS  # Verde sólido
+
+    # Tarjeta Registrarse
+    card_registro = ft.Container(
         content=ft.Column([
-            ft.Icon(ft.Icons.PERSON_ADD, size=Theme.ICON_SIZE["xl"], color=Theme.PRIMARY),
-            ft.Container(height=Theme.SPACING["md"]),
+            # Imagen personalizada más grande
+            ft.Image(
+                src=img_registro_path,
+                width=140,
+                height=140,
+                fit=ft.ImageFit.CONTAIN,
+            ),
+
+            ft.Container(height=Theme.SPACING["xl"]),
+
+            # Título en verde lima
             ft.Text(
                 "Registrarse",
-                size=Theme.FONT_SIZE["2xl"],
+                size=Theme.FONT_SIZE["4xl"],
                 weight=Theme.FONT_WEIGHT["bold"],
-                color=Theme.TEXT_PRIMARY,
-                text_align=ft.TextAlign.CENTER
+                color=verde_lima_solido,
+                text_align=ft.TextAlign.CENTER,
             ),
+
+            ft.Container(height=Theme.SPACING["sm"]),
+
+            # Descripción
             ft.Text(
-                "Soy nuevo cliente",
+                "Nuevo en el gimnasio",
                 size=Theme.FONT_SIZE["md"],
                 color=Theme.TEXT_SECONDARY,
-                text_align=ft.TextAlign.CENTER
+                text_align=ft.TextAlign.CENTER,
             ),
         ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=Theme.SPACING["xs"]
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=0
         ),
-        width=320,  # Reducido un poco
-        height=200,  # Altura fija para que sean iguales
+        width=360,
+        height=340,
         bgcolor=Theme.CARD_BG,
-        border=ft.border.all(2, Theme.PRIMARY),
+        border=ft.border.all(2, verde_success),
         border_radius=Theme.RADIUS["xl"],
-        padding=Theme.SPACING["2xl"],
+        padding=Theme.SPACING["3xl"],
         on_click=ir_a_registro,
         animate=200,
+        shadow=ft.BoxShadow(
+            spread_radius=2,
+            blur_radius=20,
+            color="rgba(76, 175, 80, 0.4)",
+            offset=ft.Offset(0, 0),
+        ),
     )
 
-    # Botón Asistencia (responsive)
-    btn_asistencia = ft.Container(
+    # Tarjeta Asistencia
+    card_asistencia = ft.Container(
         content=ft.Column([
-            ft.Icon(ft.Icons.CHECK_CIRCLE, size=Theme.ICON_SIZE["xl"], color=Theme.SUCCESS),
-            ft.Container(height=Theme.SPACING["md"]),
+            # Imagen personalizada más grande
+            ft.Image(
+                src=img_asistencia_path,
+                width=140,
+                height=140,
+                fit=ft.ImageFit.CONTAIN,
+            ),
+
+            ft.Container(height=Theme.SPACING["xl"]),
+
+            # Título en verde lima
             ft.Text(
                 "Asistencia",
-                size=Theme.FONT_SIZE["2xl"],
+                size=Theme.FONT_SIZE["4xl"],
                 weight=Theme.FONT_WEIGHT["bold"],
-                color=Theme.TEXT_PRIMARY,
-                text_align=ft.TextAlign.CENTER
+                color=verde_lima_solido,
+                text_align=ft.TextAlign.CENTER,
             ),
+
+            ft.Container(height=Theme.SPACING["sm"]),
+
+            # Descripción
             ft.Text(
-                "Ya soy cliente",
+                "Marcar mi entrada",
                 size=Theme.FONT_SIZE["md"],
                 color=Theme.TEXT_SECONDARY,
-                text_align=ft.TextAlign.CENTER
+                text_align=ft.TextAlign.CENTER,
             ),
         ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=Theme.SPACING["xs"]
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=0
         ),
-        width=320,  # Reducido un poco
-        height=200,  # Altura fija para que sean iguales
+        width=360,
+        height=340,
         bgcolor=Theme.CARD_BG,
-        border=ft.border.all(2, Theme.SUCCESS),
+        border=ft.border.all(2, verde_success),
         border_radius=Theme.RADIUS["xl"],
-        padding=Theme.SPACING["2xl"],
+        padding=Theme.SPACING["3xl"],
         on_click=ir_a_asistencia,
         animate=200,
+        shadow=ft.BoxShadow(
+            spread_radius=2,
+            blur_radius=20,
+            color="rgba(76, 175, 80, 0.4)",
+            offset=ft.Offset(0, 0),
+        ),
     )
 
-    # Efectos hover para los botones
+    # Efectos hover con efecto glow intenso
     def animate_registro_hover(e):
         if e.data == "true":
-            btn_registro.bgcolor = Theme.CARD_BG_LIGHT
-            btn_registro.scale = ft.Scale(1.05)
-            btn_registro.shadow = Theme.get_shadow("xl")
+            card_registro.scale = 1.02
+            card_registro.border = ft.border.all(3, verde_success)
+            card_registro.shadow = ft.BoxShadow(
+                spread_radius=4,
+                blur_radius=30,
+                color="rgba(76, 175, 80, 0.7)",
+                offset=ft.Offset(0, 0),
+            )
         else:
-            btn_registro.bgcolor = Theme.CARD_BG
-            btn_registro.scale = ft.Scale(1.0)
-            btn_registro.shadow = None
-        btn_registro.update()
+            card_registro.scale = 1.0
+            card_registro.border = ft.border.all(2, verde_success)
+            card_registro.shadow = ft.BoxShadow(
+                spread_radius=2,
+                blur_radius=20,
+                color="rgba(76, 175, 80, 0.4)",
+                offset=ft.Offset(0, 0),
+            )
+        card_registro.update()
 
     def animate_asistencia_hover(e):
         if e.data == "true":
-            btn_asistencia.bgcolor = Theme.CARD_BG_LIGHT
-            btn_asistencia.scale = ft.Scale(1.05)
-            btn_asistencia.shadow = Theme.get_shadow("xl")
+            card_asistencia.scale = 1.02
+            card_asistencia.border = ft.border.all(3, verde_success)
+            card_asistencia.shadow = ft.BoxShadow(
+                spread_radius=4,
+                blur_radius=30,
+                color="rgba(76, 175, 80, 0.7)",
+                offset=ft.Offset(0, 0),
+            )
         else:
-            btn_asistencia.bgcolor = Theme.CARD_BG
-            btn_asistencia.scale = ft.Scale(1.0)
-            btn_asistencia.shadow = None
-        btn_asistencia.update()
+            card_asistencia.scale = 1.0
+            card_asistencia.border = ft.border.all(2, verde_success)
+            card_asistencia.shadow = ft.BoxShadow(
+                spread_radius=2,
+                blur_radius=20,
+                color="rgba(76, 175, 80, 0.4)",
+                offset=ft.Offset(0, 0),
+            )
+        card_asistencia.update()
 
-    btn_registro.on_hover = animate_registro_hover
-    btn_asistencia.on_hover = animate_asistencia_hover
+    # Activar animaciones
+    card_registro.on_hover = animate_registro_hover
+    card_registro.animate_scale = 150
 
-    # Panel flotante con las opciones (CENTRADO Y RESPONSIVE)
-    floating_form = ft.Container(
+    card_asistencia.on_hover = animate_asistencia_hover
+    card_asistencia.animate_scale = 150
+
+    # ==================== HEADER PRINCIPAL ====================
+
+    # Verificar si existe el logo
+    logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "img", "logo.png")
+    logo_existe = os.path.exists(logo_path)
+
+    header_principal = ft.Container(
         content=ft.Column([
-            # Logo/Header
+            # Logo del gimnasio con efecto premium
             ft.Container(
-                content=ft.Column([
-                    ft.Icon(
-                        ft.Icons.FITNESS_CENTER,
-                        size=70,  # Reducido un poco
-                        color=Theme.PRIMARY
-                    ),
-                    ft.Text(
-                        "BLESSED GYM",
-                        size=Theme.FONT_SIZE["3xl"],  # Reducido un poco
-                        weight=Theme.FONT_WEIGHT["extrabold"],
-                        color=Theme.PRIMARY,
-                        text_align=ft.TextAlign.CENTER
-                    ),
-                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=Theme.SPACING["sm"]),
+                content=ft.Image(
+                    src=logo_path if logo_existe else None,
+                    width=300,
+                    height=300,
+                    fit=ft.ImageFit.CONTAIN,
+                ) if logo_existe else ft.Icon(
+                    ft.Icons.FITNESS_CENTER_ROUNDED,
+                    size=80,
+                    color=Theme.PRIMARY
+                ),
+                width=320,
+                height=320,
+                bgcolor="rgba(159, 255, 51, 0.03)" if logo_existe else "rgba(159, 255, 51, 0.1)",
+                border_radius=160,
+                border=ft.border.all(3, "rgba(159, 255, 51, 0.2)"),
                 alignment=ft.alignment.center,
-                margin=ft.margin.only(bottom=Theme.SPACING["2xl"]),
+                padding=Theme.SPACING["lg"],
+                shadow=ft.BoxShadow(
+                    spread_radius=0,
+                    blur_radius=30,
+                    color="rgba(159, 255, 51, 0.2)",
+                    offset=ft.Offset(0, 4),
+                ),
             ),
 
-            # Contenido del formulario
-            ft.Container(
-                content=ft.Column([
-                    # Título
-                    ft.Text(
-                        "Bienvenido",
-                        size=Theme.FONT_SIZE["2xl"],  # Reducido
-                        weight=Theme.FONT_WEIGHT["bold"],
-                        color=Theme.TEXT_PRIMARY,
-                        text_align=ft.TextAlign.CENTER
-                    ),
-                    ft.Text(
-                        "Selecciona una opción para continuar",
-                        size=Theme.FONT_SIZE["md"],
-                        color=Theme.TEXT_SECONDARY,
-                        text_align=ft.TextAlign.CENTER
-                    ),
+            ft.Container(height=Theme.SPACING["xl"]),
 
-                    ft.Container(height=Theme.SPACING["2xl"]),  # Reducido
-
-                    # Botones de opciones LADO A LADO
-                    ft.Row([
-                        btn_registro,
-                        btn_asistencia,
-                    ],
-                        alignment=ft.MainAxisAlignment.CENTER,
-                        spacing=Theme.SPACING["2xl"],
-                        wrap=True,  # Permite que se envuelvan en pantallas pequeñas
-                    ),
-
-                    ft.Container(height=Theme.SPACING["2xl"]),  # Reducido
-
-                    # Separador
-                    ft.Container(
-                        content=ft.Row([
-                            ft.Container(expand=True, height=1, bgcolor=Theme.BORDER_DEFAULT),
-                            ft.Text(" o ", color=Theme.TEXT_SECONDARY, size=Theme.FONT_SIZE["xs"]),
-                            ft.Container(expand=True, height=1, bgcolor=Theme.BORDER_DEFAULT),
-                        ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                        margin=ft.margin.only(bottom=Theme.SPACING["md"]),
-                    ),
-
-                    # Mensaje de ayuda
-                    ft.Container(
-                        content=ft.Text(
-                            "¿Problemas? Consulta con el personal del gimnasio",
-                            size=Theme.FONT_SIZE["xs"],
-                            color=Theme.TEXT_SECONDARY,
-                            text_align=ft.TextAlign.CENTER
-                        ),
-                    )
-                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=0),
-                padding=Theme.SPACING["2xl"],  # Reducido
-                bgcolor=Theme.CARD_BG,
-                border_radius=Theme.RADIUS["xl"],
-                border=ft.border.all(1, Theme.BORDER_DEFAULT),
-                shadow=Theme.get_shadow("xl")
+            # Slogan minimal
+            ft.Text(
+                "Tu transformación empieza aquí",
+                size=Theme.FONT_SIZE["xl"],
+                weight=Theme.FONT_WEIGHT["medium"],
+                color=Theme.TEXT_SECONDARY,
+                text_align=ft.TextAlign.CENTER,
             ),
-        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=0),
-        width=None,  # Sin ancho fijo - responsive
-        padding=Theme.SPACING["2xl"],  # Reducido
-        bgcolor=Theme.CARD_BG,
-        border_radius=Theme.RADIUS["xl"],
-        border=ft.border.all(1, "#404040"),
-        shadow=Theme.get_shadow("2xl"),
-    )
-
-    # ==================== LAYOUT PRINCIPAL ====================
-    main_container = ft.Container(
-        content=ft.Row([
-            floating_form
         ],
-            alignment=ft.MainAxisAlignment.CENTER,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=0
         ),
-        expand=True,
-        bgcolor=Theme.BACKGROUND_DARK,
-        alignment=ft.alignment.center,
-        padding=Theme.SPACING["xl"],  # Padding reducido
+        margin=ft.margin.only(bottom=Theme.SPACING["3xl"]),
     )
+
+    # ==================== CONTENEDOR PRINCIPAL RESPONSIVE ====================
+
+    contenido_principal = ft.Container(
+        content=ft.Column([
+            header_principal,
+
+            # Título de sección
+            ft.Text(
+                "Selecciona una opción",
+                size=Theme.FONT_SIZE["2xl"],
+                weight=Theme.FONT_WEIGHT["bold"],
+                color=Theme.TEXT_PRIMARY,
+                text_align=ft.TextAlign.CENTER,
+            ),
+
+            ft.Container(height=Theme.SPACING["2xl"]),
+
+            # Tarjetas lado a lado (responsive) - MÁS CERCANAS
+            ft.Row([
+                card_registro,
+                card_asistencia,
+            ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=Theme.SPACING["xl"],
+                wrap=True,
+            ),
+
+            ft.Container(height=Theme.SPACING["3xl"]),
+
+            # Footer con ayuda - MINIMAL
+            ft.Row([
+                ft.Icon(
+                    ft.Icons.SUPPORT_AGENT_ROUNDED,
+                    size=20,
+                    color=Theme.TEXT_SECONDARY
+                ),
+                ft.Text(
+                    "¿Necesitas ayuda? Consulta con el personal",
+                    size=Theme.FONT_SIZE["md"],
+                    color=Theme.TEXT_SECONDARY,
+                ),
+            ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=Theme.SPACING["sm"],
+            ),
+        ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=0
+        ),
+        padding=Theme.SPACING["3xl"],
+        alignment=ft.alignment.center,
+    )
+
+    # ==================== LAYOUT CON BACKGROUND ====================
+
+    # Verificar si existe el archivo de background
+    background_existe = os.path.exists(BACKGROUND_IMAGE)
+
+    if background_existe:
+        # Layout con imagen de fondo usando Stack
+        main_container = ft.Stack([
+            # Imagen de fondo
+            ft.Image(
+                src=BACKGROUND_IMAGE,
+                fit=ft.ImageFit.COVER,
+                width=float('inf'),
+                height=float('inf'),
+            ),
+            # Overlay oscuro para mejorar legibilidad
+            ft.Container(
+                bgcolor=Theme.OVERLAY_DARK,
+                expand=True,
+            ),
+            # Contenido principal con scroll
+            ft.Container(
+                content=ft.Column(
+                    [contenido_principal],
+                    scroll=ft.ScrollMode.AUTO,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                expand=True,
+                alignment=ft.alignment.center,
+            ),
+        ],
+            expand=True,
+        )
+    else:
+        # Fallback sin imagen de fondo
+        main_container = ft.Container(
+            content=ft.Column(
+                [contenido_principal],
+                scroll=ft.ScrollMode.AUTO,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            expand=True,
+            bgcolor=Theme.BACKGROUND_DARK,
+            alignment=ft.alignment.center,
+        )
 
     # Limpiar y mostrar
     page.controls.clear()

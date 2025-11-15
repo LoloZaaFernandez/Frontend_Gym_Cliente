@@ -10,10 +10,10 @@ from typing import Optional, Dict, Any
 try:
     import websocket
     WEBSOCKET_AVAILABLE = True
-    print("✅ Módulo websocket-client importado correctamente")
+    print("OK - Modulo websocket-client importado correctamente")
 except ImportError as e:
     WEBSOCKET_AVAILABLE = False
-    print("⚠️ Módulo 'websocket-client' no disponible. Instalar con: pip install websocket-client")
+    print("WARNING - Modulo 'websocket-client' no disponible. Instalar con: pip install websocket-client")
     print(f"   Error de import: {e}")
 
 
@@ -34,17 +34,17 @@ class WebSocketService:
     def conectar(self):
         """Conectar al WebSocket del backend"""
         if not WEBSOCKET_AVAILABLE:
-            print("⚠️ WebSocket no disponible - notificaciones deshabilitadas")
+            print("WARNING - WebSocket no disponible - notificaciones deshabilitadas")
             return False
 
         try:
-            print(f"🔌 Conectando a WebSocket: {self.ws_url}")
+            print(f"Conectando a WebSocket: {self.ws_url}")
             self.ws = websocket.create_connection(self.ws_url, timeout=5)
             self.connected = True
-            print("✅ WebSocket conectado")
+            print("OK - WebSocket conectado")
             return True
         except Exception as e:
-            print(f"❌ Error al conectar WebSocket: {e}")
+            print(f"ERROR - Error al conectar WebSocket: {e}")
             self.connected = False
             return False
 
@@ -65,13 +65,13 @@ class WebSocketService:
             pago: Información del pago (opcional)
         """
         if not WEBSOCKET_AVAILABLE:
-            print("⚠️ WebSocket no disponible - notificación no enviada")
+            print("WARNING - WebSocket no disponible - notificacion no enviada")
             return
 
-        # Si no está conectado, intentar conectar
+        # Si no esta conectado, intentar conectar
         if not self.connected:
             if not self.conectar():
-                print("⚠️ No se pudo conectar al WebSocket - notificación no enviada")
+                print("WARNING - No se pudo conectar al WebSocket - notificacion no enviada")
                 return
 
         try:
@@ -103,29 +103,29 @@ class WebSocketService:
                 "mensaje": self._generar_mensaje_notificacion(cliente, metodo_pago)
             }
 
-            # Enviar notificación
-            print(f"📤 Enviando notificación WebSocket: {notificacion}")
+            # Enviar notificacion
+            print(f"Enviando notificacion WebSocket: {notificacion}")
             self.ws.send(json.dumps(notificacion))
-            print("✅ Notificación enviada al admin")
+            print("OK - Notificacion enviada al admin")
 
         except Exception as e:
-            print(f"❌ Error al enviar notificación WebSocket: {e}")
+            print(f"ERROR - Error al enviar notificacion WebSocket: {e}")
             self.connected = False
 
     def _generar_mensaje_notificacion(self, cliente: Dict[str, Any], metodo_pago: str) -> str:
-        """Generar mensaje de notificación"""
+        """Generar mensaje de notificacion"""
         nombre = f"{cliente.get('nombre', '')} {cliente.get('apellidos', '')}"
         dni = cliente.get('dni', '')
 
-        # TODOS los pagos requieren confirmación del admin
-        return f"⚠️ NUEVO REGISTRO - {nombre} (DNI: {dni}) - Pago: {metodo_pago.upper()} - CONFIRMAR"
+        # TODOS los pagos requieren confirmacion del admin
+        return f"NUEVO REGISTRO - {nombre} (DNI: {dni}) - Pago: {metodo_pago.upper()} - CONFIRMAR"
 
     def desconectar(self):
         """Desconectar del WebSocket"""
         if self.ws and self.connected:
             try:
                 self.ws.close()
-                print("🔌 WebSocket desconectado")
+                print("WebSocket desconectado")
             except:
                 pass
             finally:

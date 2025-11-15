@@ -85,15 +85,15 @@ class APIService:
             }
         """
         url = f"{self.base_url}/api/registro/opciones"
-        print(f"🌐 API GET: {url}")
+        print(f"API GET: {url}")
         try:
             response = self.session.get(url, timeout=self.timeout)
-            print(f"📥 Status Code: {response.status_code}")
+            print(f"Status Code: {response.status_code}")
             resultado = self._handle_response(response)
-            print(f"📥 Respuesta del backend: {resultado}")
+            print(f"Respuesta del backend: {resultado}")
             return resultado
         except Exception as e:
-            print(f"❌ Error al obtener opciones de registro: {e}")
+            print(f"ERROR - Error al obtener opciones de registro: {e}")
             import traceback
             traceback.print_exc()
             raise
@@ -264,17 +264,17 @@ class APIService:
                 return {
                     "tipo": "vencida",
                     "dias_restantes": dias_restantes,
-                    "mensaje": f"⚠️ Tu membresía venció hace {abs(dias_restantes)} días. ¡Renuévala pronto!"
+                    "mensaje": f"ALERTA: Tu membresia vencio hace {abs(dias_restantes)} dias. Renuevala pronto!"
                 }
 
             # Membresía por vencer
             elif dias_restantes <= dias_alerta:
                 if dias_restantes == 0:
-                    mensaje = "⚠️ Tu membresía vence HOY. ¡No olvides renovarla!"
+                    mensaje = "ALERTA: Tu membresia vence HOY. No olvides renovarla!"
                 elif dias_restantes == 1:
-                    mensaje = "⚠️ Tu membresía vence MAÑANA. ¡No olvides renovarla!"
+                    mensaje = "ALERTA: Tu membresia vence MAÑANA. No olvides renovarla!"
                 else:
-                    mensaje = f"⚠️ Tu membresía vence en {dias_restantes} días. ¡No olvides renovarla!"
+                    mensaje = f"ALERTA: Tu membresia vence en {dias_restantes} dias. No olvides renovarla!"
 
                 return {
                     "tipo": "por_vencer",

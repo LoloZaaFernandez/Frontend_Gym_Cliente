@@ -8,22 +8,27 @@ import flet as ft
 class BlessedTheme:
     """
     Tema principal del sistema BLESSED GYM para cliente (tablet)
-    Basado en la filosofía de diseño oscuro con naranja como color principal
+    Basado en la filosofía de diseño oscuro con verde lima como color principal
     """
 
     # ========================================
-    # 🎨 COLORES PRINCIPALES
+    # 🎨 COLORES PRINCIPALES - FILOSOFÍA SERIA Y PROFESIONAL
     # ========================================
-    PRIMARY = "#F05D23"         # Naranja BLESSED - Color principal del sistema
+    PRIMARY = "#9FFF33"         # Verde Lima BLESSED - Color principal del sistema
+    PRIMARY_LIGHT = "#B8FF66"   # Verde Lima claro - Variante suave
+    PRIMARY_DARK = "#7ACC00"    # Verde Lima oscuro - Variante fuerte
     SECONDARY = "#FFFFFF"       # Blanco - Para textos y elementos secundarios
-    ACCENT = "#F05D23"          # Naranja - Para acentos y highlights
+    ACCENT = "#9FFF33"          # Verde Lima principal - Para acentos
 
     # ========================================
-    # 🎨 COLORES SEMÁNTICOS
+    # 🎨 COLORES SEMÁNTICOS - PALETA PROFESIONAL
     # ========================================
-    SUCCESS = "#00C853"         # Verde - Operaciones exitosas
-    WARNING = "#FF9100"         # Naranja advertencia - Alertas
+    SUCCESS = "#4CAF50"         # Verde - Operaciones exitosas
+    SUCCESS_LIGHT = "#66BB6A"   # Verde claro
+    WARNING = "#FF9800"         # Naranja advertencia - Alertas
+    WARNING_LIGHT = "#FFB74D"   # Naranja claro advertencia
     INFO = "#2196F3"            # Azul - Información general
+    INFO_LIGHT = "#64B5F6"      # Azul claro
     ERROR = "#EF5350"           # Rojo error - Errores críticos
     DANGER = "#FF5252"          # Rojo peligro - Acciones peligrosas
 
@@ -32,9 +37,13 @@ class BlessedTheme:
     # ========================================
     BACKGROUND_DARK = "#0A0A0A"     # Fondo principal oscuro
     BACKGROUND_MEDIUM = "#121212"    # Fondo medio
-    CARD_BG = "#1A1A1A"             # Fondo de tarjetas/cards
-    CARD_BG_DARK = "#1E1E1E"        # Fondo de tarjetas más oscuras
-    CARD_BG_LIGHT = "#2A2A2A"       # Fondo de tarjetas más claras
+    CARD_BG = "rgba(26, 26, 26, 0.92)"  # Fondo de tarjetas semi-transparente
+    CARD_BG_DARK = "rgba(20, 20, 20, 0.95)"  # Fondo de tarjetas más oscuras
+    CARD_BG_LIGHT = "rgba(42, 42, 42, 0.85)"  # Fondo de tarjetas más claras
+    CARD_BG_GLASS = "rgba(30, 30, 30, 0.75)"  # Efecto glass morphism
+    OVERLAY_DARK = "rgba(10, 10, 10, 0.65)"   # Overlay oscuro para background
+    GRADIENT_PRIMARY = "linear-gradient(135deg, #9FFF33 0%, #B8FF66 100%)"  # Gradiente verde lima
+    GRADIENT_SUCCESS = "linear-gradient(135deg, #4CAF50 0%, #81C784 100%)"  # Gradiente verde
 
     # ========================================
     # 🎨 TEXTOS
@@ -149,39 +158,40 @@ class BlessedTheme:
     }
 
     # ========================================
-    # 📐 DIMENSIONES COMUNES (Tablet)
+    # 📐 DIMENSIONES COMUNES (Tablet Landscape 1280x800)
     # ========================================
     DIMENSIONS = {
         # Anchos
-        "card_width_sm": 200,
-        "card_width_md": 350,
-        "card_width_lg": 450,
-        "button_width_sm": 120,
-        "button_width_md": 180,
-        "button_width_lg": 250,
-        "input_width_md": 400,
-        "input_width_lg": 500,
+        "card_width_sm": 250,
+        "card_width_md": 400,
+        "card_width_lg": 550,
+        "button_width_sm": 150,
+        "button_width_md": 220,
+        "button_width_lg": 300,
+        "input_width_md": 450,
+        "input_width_lg": 550,
 
         # Alturas
-        "button_height_sm": 45,
-        "button_height_md": 55,
-        "button_height_lg": 70,
-        "input_height": 55,
-        "card_height_sm": 120,
-        "card_height_md": 180,
-        "card_height_lg": 250,
+        "button_height_sm": 50,
+        "button_height_md": 65,
+        "button_height_lg": 80,
+        "input_height": 60,
+        "card_height_sm": 140,
+        "card_height_md": 200,
+        "card_height_lg": 280,
     }
 
     # ========================================
-    # 🎯 ÍCONOS - TAMAÑOS
+    # 🎯 ÍCONOS - TAMAÑOS (Optimizado para tablet)
     # ========================================
     ICON_SIZE = {
-        "xs": 16,
-        "sm": 20,
-        "md": 28,     # Mayor tamaño para tablet
-        "lg": 40,
-        "xl": 56,
-        "2xl": 64,
+        "xs": 20,
+        "sm": 28,
+        "md": 36,     # Mayor tamaño para tablet
+        "lg": 48,
+        "xl": 64,
+        "2xl": 80,
+        "3xl": 96,
     }
 
     # ========================================

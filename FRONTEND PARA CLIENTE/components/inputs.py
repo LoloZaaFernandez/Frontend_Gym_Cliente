@@ -105,15 +105,27 @@ def create_phone_input(on_change=None, value=""):
         value: Valor inicial
 
     Returns:
-        TextField configurado para teléfono (9 dígitos)
+        TextField configurado para teléfono (9 dígitos, solo números)
     """
+    def validate_numbers(e):
+        """Validar que solo se ingresen números"""
+        if e.control.value:
+            # Filtrar solo dígitos
+            filtered = ''.join(filter(str.isdigit, e.control.value))
+            if filtered != e.control.value:
+                e.control.value = filtered
+                e.control.update()
+        # Llamar al on_change original si existe
+        if on_change:
+            on_change(e)
+
     return create_text_input(
         label="Teléfono",
         hint_text="Ej: 987654321",
         icon=ft.Icons.PHONE,
         max_length=9,
-        keyboard_type=ft.KeyboardType.PHONE,
-        on_change=on_change,
+        keyboard_type=ft.KeyboardType.NUMBER,
+        on_change=validate_numbers,
         value=value
     )
 
