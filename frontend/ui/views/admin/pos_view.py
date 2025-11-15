@@ -29,17 +29,22 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
 
     # Estado
     productos_list = []
+    productos_filtrados = []  # Lista filtrada de productos
     carrito_items = []
     filtro_periodo = ["hoy"]  # hoy, semana, mes
+    reporte_metodos_data = [{}]  # Almacenar datos del reporte de métodos
+    categorias_list = []  # Lista de categorías para el filtro
+    filtro_categoria = [""]  # Categoría seleccionada
+    filtro_nombre = [""]  # Búsqueda por nombre
 
     # Referencias
     productos_grid = ft.GridView(
         expand=True,
         runs_count=2,
-        max_extent=220,
-        child_aspect_ratio=0.75,
-        spacing=10,
-        run_spacing=10,
+        max_extent=200,
+        child_aspect_ratio=0.7,
+        spacing=8,
+        run_spacing=8,
     )
     carrito_container = ft.Column(spacing=5, scroll=ft.ScrollMode.AUTO, expand=True)
     total_text = ft.Text("S/ 0.00", size=32, weight=Theme.FONT_WEIGHT["bold"], color=Theme.PRIMARY)
@@ -50,20 +55,81 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
     stat_efectivo = ft.Ref[ft.Container]()
     stat_yape = ft.Ref[ft.Container]()
 
+    # Estadísticas rápidas
+    estadisticas_hoy_container = ft.Ref[ft.Container]()
+    estadisticas_mes_container = ft.Ref[ft.Container]()
+
+    # Referencias para filtros
+    dropdown_categoria = ft.Ref[ft.Dropdown]()
+    campo_busqueda = ft.Ref[ft.TextField]()
+
     # ==========================================
     # FUNCIONES DE DATOS
     # ==========================================
     def load_productos():
         """Cargar productos activos desde la API"""
-        nonlocal productos_list
+        nonlocal productos_list, categorias_list
         try:
             # Solo productos activos con stock
             productos_list = api.get_productos(estado="Activo")
-            update_productos_grid()
+
+            # Extraer categorías únicas
+            categorias_set = set()
+            for producto in productos_list:
+                cat = producto.get('nombre_categoria')
+                if cat:
+                    categorias_set.add(cat)
+            categorias_list = sorted(list(categorias_set))
+
+            # Actualizar dropdown de categorías
+            if dropdown_categoria.current:
+                dropdown_categoria.current.options = [ft.dropdown.Option("Todas")] + [
+                    ft.dropdown.Option(cat) for cat in categorias_list
+                ]
+                dropdown_categoria.current.update()
+
+            # Aplicar filtros
+            aplicar_filtros()
         except Exception as e:
             print(f"Error al cargar productos: {e}")
             productos_list = []
+            categorias_list = []
             update_productos_grid()
+
+    def aplicar_filtros():
+        """Aplicar filtros de categoría y nombre a los productos"""
+        nonlocal productos_filtrados
+
+        # Empezar con todos los productos
+        productos_filtrados = productos_list.copy()
+
+        # Filtrar por categoría
+        if filtro_categoria[0] and filtro_categoria[0] != "Todas":
+            productos_filtrados = [
+                p for p in productos_filtrados
+                if p.get('nombre_categoria') == filtro_categoria[0]
+            ]
+
+        # Filtrar por nombre
+        if filtro_nombre[0]:
+            busqueda = filtro_nombre[0].lower()
+            productos_filtrados = [
+                p for p in productos_filtrados
+                if busqueda in p.get('nombre', '').lower() or
+                   busqueda in p.get('sku', '').lower()
+            ]
+
+        update_productos_grid()
+
+    def cambiar_filtro_categoria(categoria):
+        """Cambiar filtro de categoría"""
+        filtro_categoria[0] = categoria
+        aplicar_filtros()
+
+    def cambiar_filtro_nombre(e):
+        """Cambiar filtro de nombre"""
+        filtro_nombre[0] = e.control.value
+        aplicar_filtros()
 
     def get_fechas_filtro():
         """Obtener fechas según el filtro seleccionado (con timezone local)"""
@@ -86,7 +152,8 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
         return fecha_inicio, fecha_fin
 
     def load_reporte():
-        """Cargar reporte de ventas"""
+        """Cargar reporte de ventas usando endpoint optimizado"""
+        nonlocal reporte_metodos_data
         try:
             fecha_inicio, fecha_fin = get_fechas_filtro()
 
@@ -97,90 +164,122 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
             print(f"Desde: {fecha_inicio}")
             print(f"Hasta: {fecha_fin}")
 
-            # Obtener ventas (listado ligero - sin detalles)
-            ventas = api.get_ventas(fecha_desde=fecha_inicio, fecha_hasta=fecha_fin)
+            # Obtener reporte optimizado por métodos de pago
+            reporte_metodos = api.get_reporte_ventas_metodos_pago(
+                fecha_desde=fecha_inicio,
+                fecha_hasta=fecha_fin
+            )
 
-            print(f"Ventas recibidas del backend: {len(ventas) if ventas else 0}")
+            # Guardar datos del reporte
+            reporte_metodos_data[0] = reporte_metodos
+
+            print(f"\n💳 REPORTE POR MÉTODOS DE PAGO:")
+            print(f"  Total general: S/ {reporte_metodos.get('total_general', 0):.2f}")
+            print(f"  Cantidad de ventas: {reporte_metodos.get('total_ventas', 0)}")
+
+            # Extraer datos de métodos de pago
+            efectivo_data = reporte_metodos.get('efectivo', {})
+            yape_data = reporte_metodos.get('yape', {})
+            otros_data = reporte_metodos.get('otros', {})
+
+            total_general = reporte_metodos.get('total_general', 0)
+            total_efectivo = efectivo_data.get('total', 0)
+            total_yape = yape_data.get('total', 0)
+            total_otros = otros_data.get('total', 0)
+
+            print(f"  Efectivo: S/ {total_efectivo:.2f} ({efectivo_data.get('porcentaje', 0):.1f}%)")
+            print(f"  Yape: S/ {total_yape:.2f} ({yape_data.get('porcentaje', 0):.1f}%)")
+            if total_otros > 0:
+                print(f"  Otros: S/ {total_otros:.2f} ({otros_data.get('porcentaje', 0):.1f}%)")
 
             # Si no hay ventas, mostrar vacío
-            if not ventas:
+            if total_general == 0:
                 print(f"⚠️ No hay ventas en el período {fecha_inicio} - {fecha_fin}")
                 print(f"{'='*60}\n")
                 update_stats(0, 0, 0)
                 update_reporte_tabla({}, 0)
                 return
 
-            print(f"\n📋 DETALLE DE VENTAS:")
-            # Calcular totales de las ventas
-            total_ventas = 0
-            total_efectivo = 0
-            total_yape = 0
+            # Obtener ventas para productos vendidos
+            ventas = api.get_ventas(fecha_desde=fecha_inicio, fecha_hasta=fecha_fin)
             productos_vendidos = {}
 
-            # Procesar cada venta y obtener sus detalles
-            for idx, venta in enumerate(ventas, 1):
-                venta_id = venta.get('id')
-                total_venta = venta.get('total', 0)
-                metodo_pago = venta.get('metodo_pago', 'Efectivo')
-                fecha = venta.get('fecha_venta', venta.get('fecha', 'N/A'))
-                folio = venta.get('folio', f"#{venta_id}")
+            if ventas:
+                print(f"\n📋 DETALLE DE VENTAS:")
+                # Procesar cada venta para obtener productos
+                for idx, venta in enumerate(ventas, 1):
+                    venta_id = venta.get('id')
+                    folio = venta.get('folio', f"#{venta_id}")
+                    total_venta = venta.get('total', 0)
+                    metodo_pago = venta.get('metodo_pago', 'Efectivo')
+                    fecha = venta.get('fecha_venta', venta.get('fecha', 'N/A'))
 
-                print(f"  Venta #{idx}:")
-                print(f"    Folio: {folio}")
-                print(f"    Fecha: {fecha}")
-                print(f"    Total: S/ {total_venta:.2f}")
-                print(f"    Método: {metodo_pago}")
+                    print(f"  Venta #{idx}:")
+                    print(f"    Folio: {folio}")
+                    print(f"    Fecha: {fecha}")
+                    print(f"    Total: S/ {total_venta:.2f}")
+                    print(f"    Método: {metodo_pago}")
 
-                total_ventas += total_venta
+                    # Obtener detalles de productos
+                    items = venta.get('detalles', venta.get('items', []))
 
-                if metodo_pago.lower() in ['efectivo', 'cash']:
-                    total_efectivo += total_venta
-                elif metodo_pago.lower() in ['yape', 'transferencia']:
-                    total_yape += total_venta
+                    # Si no vienen en el listado, pedirlos individualmente
+                    if not items and venta_id:
+                        try:
+                            print(f"    Consultando detalles al backend...")
+                            venta_completa = api.get_venta_por_id(venta_id)
+                            if venta_completa:
+                                items = venta_completa.get('detalles', venta_completa.get('items', []))
+                        except ValueError as e:
+                            error_msg = str(e).lower()
+                            if "500" in error_msg or "error interno" in error_msg:
+                                print(f"    ⚠️ Error 500 del backend al obtener detalles")
+                                print(f"    Esto puede ser un bug en el endpoint GET /api/ventas/{venta_id}")
+                            else:
+                                print(f"    Items: Error - {e}")
+                        except Exception as e:
+                            print(f"    Items: Error inesperado - {type(e).__name__}: {e}")
 
-                # Obtener detalles completos de la venta (productos)
-                # El listado NO trae items, hay que pedirlos individualmente
-                if venta_id:
-                    try:
-                        venta_completa = api.get_venta_por_id(venta_id)
-                        if venta_completa:
-                            # Backend devuelve 'detalles' con los productos
-                            items = venta_completa.get('detalles', [])
-                            print(f"    Items: {len(items)}")
+                    # Procesar items si existen
+                    if items:
+                        print(f"    Items: {len(items)}")
+                        for item in items:
+                            producto_id = item.get('id_producto')
+                            nombre = item.get('nombre_producto', 'Desconocido')
+                            cantidad = item.get('cantidad', 0)
 
-                            for item in items:
-                                producto_id = item.get('id_producto')
-                                nombre = item.get('nombre_producto', 'Desconocido')
-                                cantidad = item.get('cantidad', 0)
+                            print(f"      - {nombre}: {cantidad} unidades")
 
-                                print(f"      - {nombre}: {cantidad} unidades")
+                            if producto_id in productos_vendidos:
+                                productos_vendidos[producto_id]['cantidad'] += cantidad
+                            else:
+                                productos_vendidos[producto_id] = {
+                                    'nombre': nombre,
+                                    'cantidad': cantidad
+                                }
+                    else:
+                        print(f"    Items: No disponibles (el backend puede tener un error)")
 
-                                if producto_id in productos_vendidos:
-                                    productos_vendidos[producto_id]['cantidad'] += cantidad
-                                else:
-                                    productos_vendidos[producto_id] = {
-                                        'nombre': nombre,
-                                        'cantidad': cantidad
-                                    }
-                        else:
-                            print(f"    Items: No se pudieron obtener")
-                    except Exception as e:
-                        print(f"    Items: Error al obtener detalles - {e}")
-                else:
-                    print(f"    Items: ID de venta no disponible")
+                print(f"\n💰 RESUMEN:")
+                print(f"  Total General: S/ {total_general:.2f}")
+                print(f"  Efectivo: S/ {total_efectivo:.2f}")
+                print(f"  Yape: S/ {total_yape:.2f}")
+                if total_otros > 0:
+                    print(f"  Otros: S/ {total_otros:.2f}")
+                print(f"  Productos diferentes vendidos: {len(productos_vendidos)}")
+                print(f"{'='*60}\n")
 
-            print(f"\n💰 TOTALES:")
-            print(f"  Total Ventas: S/ {total_ventas:.2f}")
-            print(f"  Efectivo: S/ {total_efectivo:.2f}")
-            print(f"  Yape: S/ {total_yape:.2f}")
-            print(f"  Productos diferentes vendidos: {len(productos_vendidos)}")
-            print(f"{'='*60}\n")
-
-            # Actualizar stats
-            update_stats(total_ventas, total_efectivo, total_yape)
+            # Actualizar stats con datos del reporte optimizado (incluyendo porcentajes)
+            update_stats(
+                total_general,
+                total_efectivo,
+                total_yape,
+                porcentaje_efectivo=efectivo_data.get('porcentaje'),
+                porcentaje_yape=yape_data.get('porcentaje')
+            )
 
             # Actualizar tabla de productos vendidos
-            update_reporte_tabla(productos_vendidos, len(ventas))
+            update_reporte_tabla(productos_vendidos, reporte_metodos.get('total_ventas', 0))
 
         except ValueError as e:
             # Si el endpoint no existe (404), mostrar mensaje informativo
@@ -202,8 +301,14 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
             update_stats(0, 0, 0)
             update_reporte_tabla({}, 0)
 
-    def update_stats(total_ventas, total_efectivo, total_yape):
-        """Actualizar estadísticas de ventas"""
+    def update_stats(total_ventas, total_efectivo, total_yape, porcentaje_efectivo=None, porcentaje_yape=None):
+        """Actualizar estadísticas de ventas con porcentajes opcionales"""
+        # Obtener datos adicionales del reporte
+        reporte = reporte_metodos_data[0] if reporte_metodos_data else {}
+        efectivo_data = reporte.get('efectivo', {})
+        yape_data = reporte.get('yape', {})
+        total_ventas_count = reporte.get('total_ventas', 0)
+
         if stat_total_ventas.current:
             stat_total_ventas.current.content = ft.Column([
                 ft.Row([
@@ -212,28 +317,83 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
                 ], spacing=8),
                 ft.Text(f"S/ {total_ventas:.2f}", size=Theme.FONT_SIZE["xl"],
                        weight=Theme.FONT_WEIGHT["bold"], color=Theme.PRIMARY),
+                ft.Text(
+                    f"{total_ventas_count} venta(s)" if total_ventas_count > 0 else "",
+                    size=Theme.FONT_SIZE["sm"],
+                    color=Theme.TEXT_SECONDARY
+                ) if total_ventas_count > 0 else ft.Container(),
             ], spacing=4)
             stat_total_ventas.current.update()
 
         if stat_efectivo.current:
+            # Calcular porcentaje si no se proporciona
+            if porcentaje_efectivo is None and total_ventas > 0:
+                porcentaje_efectivo = (total_efectivo / total_ventas) * 100
+
+            # Cantidad de ventas en efectivo
+            cantidad_efectivo = efectivo_data.get('cantidad_ventas', 0)
+
             stat_efectivo.current.content = ft.Column([
                 ft.Row([
                     ft.Icon(ft.Icons.MONEY, size=24, color=Theme.SUCCESS),
                     ft.Text("Efectivo", size=Theme.FONT_SIZE["sm"], color=Theme.TEXT_SECONDARY),
                 ], spacing=8),
-                ft.Text(f"S/ {total_efectivo:.2f}", size=Theme.FONT_SIZE["xl"],
-                       weight=Theme.FONT_WEIGHT["bold"], color=Theme.SUCCESS),
+                ft.Row([
+                    ft.Text(f"S/ {total_efectivo:.2f}", size=Theme.FONT_SIZE["lg"],
+                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.SUCCESS),
+                    ft.Container(
+                        content=ft.Text(
+                            f"{porcentaje_efectivo:.1f}%",
+                            size=Theme.FONT_SIZE["sm"],
+                            weight=Theme.FONT_WEIGHT["bold"],
+                            color="white"
+                        ),
+                        bgcolor=Theme.SUCCESS,
+                        padding=ft.padding.symmetric(horizontal=8, vertical=2),
+                        border_radius=Theme.RADIUS["sm"]
+                    ) if porcentaje_efectivo is not None and porcentaje_efectivo > 0 else ft.Container(),
+                ], spacing=8, alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ft.Text(
+                    f"{cantidad_efectivo} venta(s)" if cantidad_efectivo > 0 else "",
+                    size=Theme.FONT_SIZE["xs"],
+                    color=Theme.TEXT_SECONDARY
+                ) if cantidad_efectivo > 0 else ft.Container(),
             ], spacing=4)
             stat_efectivo.current.update()
 
         if stat_yape.current:
+            # Calcular porcentaje si no se proporciona
+            if porcentaje_yape is None and total_ventas > 0:
+                porcentaje_yape = (total_yape / total_ventas) * 100
+
+            # Cantidad de ventas en yape
+            cantidad_yape = yape_data.get('cantidad_ventas', 0)
+
             stat_yape.current.content = ft.Column([
                 ft.Row([
                     ft.Icon(ft.Icons.PHONE_ANDROID, size=24, color=Theme.INFO),
                     ft.Text("Yape", size=Theme.FONT_SIZE["sm"], color=Theme.TEXT_SECONDARY),
                 ], spacing=8),
-                ft.Text(f"S/ {total_yape:.2f}", size=Theme.FONT_SIZE["xl"],
-                       weight=Theme.FONT_WEIGHT["bold"], color=Theme.INFO),
+                ft.Row([
+                    ft.Text(f"S/ {total_yape:.2f}", size=Theme.FONT_SIZE["lg"],
+                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.INFO),
+                    ft.Container(
+                        content=ft.Text(
+                            f"{porcentaje_yape:.1f}%",
+                            size=Theme.FONT_SIZE["sm"],
+                            weight=Theme.FONT_WEIGHT["bold"],
+                            color="white"
+                        ),
+                        bgcolor=Theme.INFO,
+                        padding=ft.padding.symmetric(horizontal=8, vertical=2),
+                        border_radius=Theme.RADIUS["sm"]
+                    ) if porcentaje_yape is not None and porcentaje_yape > 0 else ft.Container(),
+                ], spacing=8, alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ft.Text(
+                    f"{cantidad_yape} venta(s)" if cantidad_yape > 0 else "",
+                    size=Theme.FONT_SIZE["xs"],
+                    color=Theme.TEXT_SECONDARY
+                ) if cantidad_yape > 0 else ft.Container(),
             ], spacing=4)
             stat_yape.current.update()
 
@@ -306,6 +466,111 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
 
         page.update()
 
+    def load_estadisticas_rapidas():
+        """Cargar estadísticas rápidas de hoy y del mes"""
+        try:
+            # Obtener estadísticas de hoy
+            stats_hoy = api.get_estadisticas_ventas_hoy()
+            update_estadisticas_hoy(stats_hoy)
+
+            # Obtener estadísticas del mes
+            stats_mes = api.get_estadisticas_ventas_mes()
+            update_estadisticas_mes(stats_mes)
+
+        except Exception as e:
+            print(f"Error al cargar estadísticas rápidas: {e}")
+            update_estadisticas_hoy({})
+            update_estadisticas_mes({})
+
+    def update_estadisticas_hoy(stats):
+        """Actualizar tarjeta de estadísticas de hoy"""
+        if not estadisticas_hoy_container.current:
+            return
+
+        total_ventas = stats.get('total_ventas', 0)
+        total = stats.get('total', 0)
+        ganancia = stats.get('ganancia', 0)
+        ticket_promedio = stats.get('ticket_promedio', 0)
+
+        estadisticas_hoy_container.current.content = ft.Column([
+            ft.Row([
+                ft.Icon(ft.Icons.TODAY, size=20, color=Theme.PRIMARY),
+                ft.Text("Hoy", size=Theme.FONT_SIZE["md"],
+                       weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY),
+            ], spacing=8),
+            ft.Divider(height=1, color=Theme.BORDER_DEFAULT),
+            ft.Row([
+                ft.Column([
+                    ft.Text("Ventas", size=Theme.FONT_SIZE["xs"], color=Theme.TEXT_SECONDARY),
+                    ft.Text(str(total_ventas), size=Theme.FONT_SIZE["lg"],
+                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.PRIMARY),
+                ], spacing=2),
+                ft.Column([
+                    ft.Text("Total", size=Theme.FONT_SIZE["xs"], color=Theme.TEXT_SECONDARY),
+                    ft.Text(f"S/ {total:.2f}", size=Theme.FONT_SIZE["lg"],
+                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.SUCCESS),
+                ], spacing=2),
+            ], spacing=Theme.SPACING["lg"], alignment=ft.MainAxisAlignment.SPACE_AROUND),
+            ft.Row([
+                ft.Column([
+                    ft.Text("Ganancia", size=Theme.FONT_SIZE["xs"], color=Theme.TEXT_SECONDARY),
+                    ft.Text(f"S/ {ganancia:.2f}", size=Theme.FONT_SIZE["md"],
+                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.INFO),
+                ], spacing=2),
+                ft.Column([
+                    ft.Text("Ticket Prom.", size=Theme.FONT_SIZE["xs"], color=Theme.TEXT_SECONDARY),
+                    ft.Text(f"S/ {ticket_promedio:.2f}", size=Theme.FONT_SIZE["md"],
+                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.WARNING),
+                ], spacing=2),
+            ], spacing=Theme.SPACING["lg"], alignment=ft.MainAxisAlignment.SPACE_AROUND),
+        ], spacing=Theme.SPACING["sm"])
+        estadisticas_hoy_container.current.update()
+
+    def update_estadisticas_mes(stats):
+        """Actualizar tarjeta de estadísticas del mes"""
+        if not estadisticas_mes_container.current:
+            return
+
+        mes = stats.get('mes', 'N/A')
+        total_ventas = stats.get('total_ventas', 0)
+        total = stats.get('total', 0)
+        ganancia = stats.get('ganancia', 0)
+        ticket_promedio = stats.get('ticket_promedio', 0)
+
+        estadisticas_mes_container.current.content = ft.Column([
+            ft.Row([
+                ft.Icon(ft.Icons.CALENDAR_MONTH, size=20, color=Theme.INFO),
+                ft.Text(mes, size=Theme.FONT_SIZE["md"],
+                       weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY),
+            ], spacing=8),
+            ft.Divider(height=1, color=Theme.BORDER_DEFAULT),
+            ft.Row([
+                ft.Column([
+                    ft.Text("Ventas", size=Theme.FONT_SIZE["xs"], color=Theme.TEXT_SECONDARY),
+                    ft.Text(str(total_ventas), size=Theme.FONT_SIZE["lg"],
+                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.PRIMARY),
+                ], spacing=2),
+                ft.Column([
+                    ft.Text("Total", size=Theme.FONT_SIZE["xs"], color=Theme.TEXT_SECONDARY),
+                    ft.Text(f"S/ {total:.2f}", size=Theme.FONT_SIZE["lg"],
+                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.SUCCESS),
+                ], spacing=2),
+            ], spacing=Theme.SPACING["lg"], alignment=ft.MainAxisAlignment.SPACE_AROUND),
+            ft.Row([
+                ft.Column([
+                    ft.Text("Ganancia", size=Theme.FONT_SIZE["xs"], color=Theme.TEXT_SECONDARY),
+                    ft.Text(f"S/ {ganancia:.2f}", size=Theme.FONT_SIZE["md"],
+                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.INFO),
+                ], spacing=2),
+                ft.Column([
+                    ft.Text("Ticket Prom.", size=Theme.FONT_SIZE["xs"], color=Theme.TEXT_SECONDARY),
+                    ft.Text(f"S/ {ticket_promedio:.2f}", size=Theme.FONT_SIZE["md"],
+                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.WARNING),
+                ], spacing=2),
+            ], spacing=Theme.SPACING["lg"], alignment=ft.MainAxisAlignment.SPACE_AROUND),
+        ], spacing=Theme.SPACING["sm"])
+        estadisticas_mes_container.current.update()
+
     # ==========================================
     # FUNCIONES DE PRODUCTOS
     # ==========================================
@@ -313,19 +578,19 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
         """Actualizar grid de productos"""
         productos_grid.controls.clear()
 
-        if not productos_list:
+        if not productos_filtrados:
             productos_grid.controls.append(
                 ft.Container(
                     content=create_empty_state(
-                        message="No hay productos disponibles",
+                        message="No hay productos" + (" que coincidan con el filtro" if (filtro_categoria[0] or filtro_nombre[0]) else " disponibles"),
                         icon=ft.Icons.INVENTORY_2,
-                        secondary_message="Los productos activos aparecerán aquí"
+                        secondary_message="Prueba cambiando los filtros" if (filtro_categoria[0] or filtro_nombre[0]) else "Los productos activos aparecerán aquí"
                     ),
                     expand=True
                 )
             )
         else:
-            for producto in productos_list:
+            for producto in productos_filtrados:
                 productos_grid.controls.append(crear_producto_card(producto))
 
         page.update()
@@ -351,18 +616,18 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
 
         return ft.Container(
             content=ft.Column([
-                # Icono del producto
+                # Icono del producto (más pequeño)
                 ft.Container(
-                    content=ft.Icon(ft.Icons.INVENTORY_2, size=36, color=Theme.PRIMARY),
+                    content=ft.Icon(ft.Icons.INVENTORY_2, size=28, color=Theme.PRIMARY),
                     bgcolor=f"{Theme.PRIMARY}22",
                     border_radius=Theme.RADIUS["md"],
-                    padding=12,
+                    padding=8,
                     alignment=ft.alignment.center
                 ),
                 # Nombre del producto
                 ft.Text(
                     producto['nombre'],
-                    size=Theme.FONT_SIZE["sm"],
+                    size=Theme.FONT_SIZE["xs"],
                     weight=Theme.FONT_WEIGHT["bold"],
                     color=Theme.TEXT_PRIMARY,
                     text_align=ft.TextAlign.CENTER,
@@ -372,7 +637,7 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
                 # Precio
                 ft.Text(
                     f"S/ {precio:.2f}",
-                    size=Theme.FONT_SIZE["lg"],
+                    size=Theme.FONT_SIZE["md"],
                     weight=Theme.FONT_WEIGHT["bold"],
                     color=Theme.PRIMARY,
                     text_align=ft.TextAlign.CENTER
@@ -386,22 +651,27 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
                         weight=Theme.FONT_WEIGHT["medium"]
                     ),
                     bgcolor=f"{stock_color}15",
-                    padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                    padding=ft.padding.symmetric(horizontal=6, vertical=2),
                     border_radius=Theme.RADIUS["sm"]
                 ),
-                # Botón agregar
+                # Botón agregar (compacto)
                 ft.ElevatedButton(
                     "Agregar",
-                    icon=ft.Icons.ADD_SHOPPING_CART,
+                    icon=ft.Icons.ADD,
+                    icon_color="white",
                     bgcolor=Theme.PRIMARY if not disabled else Theme.TEXT_SECONDARY,
                     color="white",
                     disabled=disabled,
+                    style=ft.ButtonStyle(
+                        padding=ft.padding.symmetric(horizontal=12, vertical=6),
+                        text_style=ft.TextStyle(size=Theme.FONT_SIZE["xs"])
+                    ),
                     on_click=lambda _, p=producto: agregar_al_carrito(p)
                 )
-            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=6),
             bgcolor=Theme.CARD_BG,
             border_radius=Theme.RADIUS["md"],
-            padding=Theme.SPACING["md"],
+            padding=10,
             border=ft.border.all(1, Theme.BORDER_DEFAULT)
         )
 
@@ -489,58 +759,70 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
             for item in carrito_items:
                 carrito_container.controls.append(
                     ft.Container(
-                        content=ft.Row([
-                            ft.Column([
+                        content=ft.Column([
+                            # Primera fila: Nombre y botón eliminar
+                            ft.Row([
                                 ft.Text(
                                     item['nombre'],
                                     size=Theme.FONT_SIZE["sm"],
                                     weight=Theme.FONT_WEIGHT["bold"],
-                                    color=Theme.TEXT_PRIMARY
+                                    color=Theme.TEXT_PRIMARY,
+                                    expand=True,
+                                    overflow=ft.TextOverflow.ELLIPSIS
                                 ),
+                                create_icon_button(
+                                    ft.Icons.DELETE,
+                                    lambda _, id=item['id']: quitar_del_carrito(id),
+                                    tooltip="Eliminar",
+                                    color=Theme.ERROR
+                                ),
+                            ], spacing=5),
+                            # Segunda fila: Precio unitario, cantidad y subtotal
+                            ft.Row([
                                 ft.Text(
                                     f"S/ {item['precio']:.2f}",
                                     size=Theme.FONT_SIZE["xs"],
                                     color=Theme.TEXT_SECONDARY
                                 ),
-                            ], spacing=2, expand=True),
-                            ft.Row([
-                                create_icon_button(
-                                    ft.Icons.REMOVE,
-                                    lambda _, id=item['id']: actualizar_cantidad(id, -1),
-                                    tooltip="Disminuir",
-                                    color=Theme.TEXT_SECONDARY
-                                ),
+                                ft.Row([
+                                    create_icon_button(
+                                        ft.Icons.REMOVE,
+                                        lambda _, id=item['id']: actualizar_cantidad(id, -1),
+                                        tooltip="Disminuir",
+                                        color=Theme.TEXT_SECONDARY
+                                    ),
+                                    ft.Container(
+                                        content=ft.Text(
+                                            str(item['cantidad']),
+                                            size=Theme.FONT_SIZE["sm"],
+                                            weight=Theme.FONT_WEIGHT["bold"],
+                                            color=Theme.TEXT_PRIMARY,
+                                            text_align=ft.TextAlign.CENTER
+                                        ),
+                                        width=30,
+                                        bgcolor=f"{Theme.PRIMARY}15",
+                                        border_radius=Theme.RADIUS["sm"],
+                                        padding=2
+                                    ),
+                                    create_icon_button(
+                                        ft.Icons.ADD,
+                                        lambda _, id=item['id']: actualizar_cantidad(id, 1),
+                                        tooltip="Aumentar",
+                                        color=Theme.PRIMARY
+                                    ),
+                                ], spacing=2),
                                 ft.Text(
-                                    str(item['cantidad']),
-                                    size=Theme.FONT_SIZE["md"],
+                                    f"S/ {item['subtotal']:.2f}",
+                                    size=Theme.FONT_SIZE["sm"],
                                     weight=Theme.FONT_WEIGHT["bold"],
-                                    color=Theme.TEXT_PRIMARY
+                                    color=Theme.PRIMARY,
+                                    text_align=ft.TextAlign.RIGHT
                                 ),
-                                create_icon_button(
-                                    ft.Icons.ADD,
-                                    lambda _, id=item['id']: actualizar_cantidad(id, 1),
-                                    tooltip="Aumentar",
-                                    color=Theme.PRIMARY
-                                ),
-                            ], spacing=0),
-                            ft.Text(
-                                f"S/ {item['subtotal']:.2f}",
-                                size=Theme.FONT_SIZE["md"],
-                                weight=Theme.FONT_WEIGHT["bold"],
-                                color=Theme.PRIMARY,
-                                width=80,
-                                text_align=ft.TextAlign.RIGHT
-                            ),
-                            create_icon_button(
-                                ft.Icons.DELETE,
-                                lambda _, id=item['id']: quitar_del_carrito(id),
-                                tooltip="Eliminar",
-                                color=Theme.ERROR
-                            ),
-                        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                            ], spacing=5, alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                        ], spacing=5),
                         bgcolor=Theme.CARD_BG,
                         border_radius=Theme.RADIUS["sm"],
-                        padding=Theme.SPACING["sm"],
+                        padding=8,
                         border=ft.border.all(1, Theme.BORDER_DEFAULT),
                         margin=ft.margin.only(bottom=5)
                     )
@@ -610,25 +892,22 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
                     if item_carrito:
                         print(f"  {i}. Producto ID {prod['id_producto']}: {prod['cantidad']} x S/ {item_carrito['precio']}")
 
-                # Crear payload para enviar
-                payload_info = {
-                    "items": productos,
-                    "cliente_id": None,
-                    "tipo_cliente": "Publico",
-                    "metodo_pago": metodo_pago,
-                    "descuento": 0,
-                    "notas": f"Venta POS - {len(productos)} producto(s)",
-                    "usuario_creacion": current_user.get("nombre", "admin")
-                }
-
-                print(f"\n📤 DATOS A ENVIAR AL BACKEND:")
-                import json
-                print(json.dumps(payload_info, indent=2, ensure_ascii=False))
-                print(f"{'='*60}\n")
-
                 # Crear venta con la estructura correcta
-                # tipo_cliente="Publico" por defecto (puedes cambiarlo si integras con clientes)
-                resultado = api.crear_venta(**payload_info)
+                # api.crear_venta() internamente convierte los parámetros al formato del backend
+                resultado = api.crear_venta(
+                    items=productos,
+                    cliente_id=None,
+                    tipo_cliente="Publico",
+                    metodo_pago=metodo_pago,
+                    descuento=0,
+                    notas=f"Venta POS - {len(productos)} producto(s)",
+                    usuario_creacion=current_user.get("nombre", "admin")
+                )
+
+                print(f"\n📤 Venta enviada al backend")
+                print(f"  Items: {len(productos)}")
+                print(f"  Método: {metodo_pago}")
+                print(f"{'='*60}\n")
 
                 print(f"✅ VENTA REGISTRADA EXITOSAMENTE")
                 print(f"Respuesta del backend: {resultado}")
@@ -660,12 +939,14 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
                 # Limpiar carrito
                 limpiar_carrito()
 
-                print(f"🔄 Recargando productos y reportes...")
+                print(f"🔄 Recargando productos, reportes y estadísticas...")
                 # Recargar productos (para actualizar stock)
                 load_productos()
                 # Recargar reporte (para mostrar la venta)
                 load_reporte()
-                print(f"✅ Productos y reportes recargados\n")
+                # Recargar estadísticas rápidas
+                load_estadisticas_rapidas()
+                print(f"✅ Productos, reportes y estadísticas recargados\n")
 
             except ValueError as ex:
                 page.close(dialog)
@@ -743,17 +1024,56 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
         """Actualizar vista completa"""
         page.clean()
 
-        # Panel de productos
+        # Panel de productos (totalmente estático)
         productos_panel = create_card_container(
             content=ft.Column([
-                ft.Row([
-                    ft.Icon(ft.Icons.INVENTORY_2, size=Theme.ICON_SIZE["md"], color=Theme.PRIMARY),
-                    ft.Text("Productos Disponibles", size=Theme.FONT_SIZE["lg"],
-                           weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY),
-                ], spacing=Theme.SPACING["sm"]),
+                # Header (altura fija)
+                ft.Container(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.INVENTORY_2, size=Theme.ICON_SIZE["md"], color=Theme.PRIMARY),
+                        ft.Text("Productos Disponibles", size=Theme.FONT_SIZE["lg"],
+                               weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY),
+                    ], spacing=Theme.SPACING["sm"]),
+                    height=40,
+                ),
                 ft.Divider(height=1, color=Theme.BORDER_DEFAULT),
-                productos_grid,
-            ], spacing=Theme.SPACING["md"], expand=True),
+                # Filtros de búsqueda (altura fija)
+                ft.Container(
+                    content=ft.Row([
+                        ft.Dropdown(
+                            ref=dropdown_categoria,
+                            label="Categoría",
+                            hint_text="Todas",
+                            options=[ft.dropdown.Option("Todas")],
+                            value="Todas",
+                            border_color=Theme.BORDER_DEFAULT,
+                            focused_border_color=Theme.PRIMARY,
+                            bgcolor=Theme.CARD_BG,
+                            color=Theme.TEXT_PRIMARY,
+                            width=160,
+                            on_change=lambda e: cambiar_filtro_categoria(e.control.value)
+                        ),
+                        ft.TextField(
+                            ref=campo_busqueda,
+                            label="Buscar",
+                            hint_text="Nombre o SKU",
+                            prefix_icon=ft.Icons.SEARCH,
+                            border_color=Theme.BORDER_DEFAULT,
+                            focused_border_color=Theme.PRIMARY,
+                            bgcolor=Theme.CARD_BG,
+                            color=Theme.TEXT_PRIMARY,
+                            expand=True,
+                            on_change=cambiar_filtro_nombre
+                        ),
+                    ], spacing=8),
+                    height=56,
+                ),
+                # Grid de productos (toma el resto del espacio)
+                ft.Container(
+                    content=productos_grid,
+                    expand=True,
+                ),
+            ], spacing=8),
             padding=Theme.SPACING["lg"],
             shadow="md"
         )
@@ -833,6 +1153,28 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
                                 padding=Theme.SPACING["sm"], border_radius=Theme.RADIUS["sm"]),
                 ]),
                 ft.Divider(height=1, color=Theme.BORDER_DEFAULT),
+                # Estadísticas Rápidas
+                ft.Text("Estadísticas Rápidas", size=Theme.FONT_SIZE["md"],
+                       weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY),
+                ft.Row([
+                    ft.Container(
+                        ref=estadisticas_hoy_container,
+                        expand=True,
+                        bgcolor=f"{Theme.PRIMARY}08",
+                        padding=Theme.SPACING["md"],
+                        border_radius=Theme.RADIUS["md"],
+                        border=ft.border.all(1, f"{Theme.PRIMARY}30")
+                    ),
+                    ft.Container(
+                        ref=estadisticas_mes_container,
+                        expand=True,
+                        bgcolor=f"{Theme.INFO}08",
+                        padding=Theme.SPACING["md"],
+                        border_radius=Theme.RADIUS["md"],
+                        border=ft.border.all(1, f"{Theme.INFO}30")
+                    ),
+                ]),
+                ft.Divider(height=1, color=Theme.BORDER_DEFAULT),
                 ft.Text("Productos Vendidos", size=Theme.FONT_SIZE["md"],
                        weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY),
                 reporte_container,
@@ -841,11 +1183,11 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
             shadow="md"
         )
 
-        # Layout con 3 columnas
+        # Layout con 3 columnas: Productos (izq) | Reporte (centro) | Carrito (derecha)
         content_row = ft.Row([
-            ft.Container(content=productos_panel, expand=2),
-            ft.Container(content=carrito_panel, width=350),
-            ft.Container(content=reporte_panel, width=350),
+            ft.Container(content=productos_panel, expand=3),  # Productos - más grande
+            ft.Container(content=reporte_panel, width=400),    # Reporte - mediano
+            ft.Container(content=carrito_panel, width=320),    # Carrito - compacto pero funcional
         ], spacing=Theme.SPACING["lg"], expand=True)
 
         # Contenido principal
@@ -866,6 +1208,7 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
         # Cargar datos iniciales
         load_productos()
         load_reporte()
+        load_estadisticas_rapidas()
         actualizar_carrito()
 
     # Inicializar vista

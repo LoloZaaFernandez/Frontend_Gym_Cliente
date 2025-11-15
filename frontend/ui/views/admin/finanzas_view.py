@@ -977,8 +977,7 @@ def show_finanzas_view(page: ft.Page, auth_service, on_section_click, current_se
 
                 data = {
                     "nombre": nombre_cat_field.value.strip(),
-                    "descripcion": descripcion_cat_field.value.strip() if descripcion_cat_field.value else "",
-                    "estado": "Activa"
+                    "descripcion": descripcion_cat_field.value.strip() if descripcion_cat_field.value else ""
                 }
 
                 print(f"\n{'='*60}")
