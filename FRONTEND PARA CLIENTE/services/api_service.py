@@ -161,6 +161,56 @@ class APIService:
             print(f"Error al registrar cliente: {e}")
             raise
 
+    def renovar_membresia_cliente(
+        self,
+        dni: str,
+        id_membresia: int,
+        metodo_pago: str,
+        usuario_creacion: str = "tablet_gym"
+    ) -> Dict[str, Any]:
+        """
+        Renovar membresía de un cliente existente
+
+        Endpoint: POST /api/registro/renovar-membresia
+
+        Este endpoint crea un registro PENDIENTE de renovación que debe ser confirmado por el administrador.
+
+        Args:
+            dni: Número de DNI del cliente
+            id_membresia: ID de la nueva membresía
+            metodo_pago: Método de pago ("Efectivo", "Yape")
+            usuario_creacion: Usuario que registra (default: "tablet_gym")
+
+        Returns:
+            {
+                "renovacion_creada": true,
+                "id_registro_pendiente": 6,
+                "mensaje": "Renovación pendiente creada. Esperando confirmación...",
+                "resumen": {
+                    "nombre_completo": "Juan Pérez García",
+                    "dni": "12345678",
+                    "metodo_pago": "Efectivo",
+                    "monto": 150.00,
+                    "tipo_membresia": "Mensual",
+                    "nombre_membresia": "Membresía Mensual"
+                }
+            }
+        """
+        url = f"{self.base_url}/api/registro/renovar-membresia"
+        data = {
+            "dni": dni,
+            "id_membresia": id_membresia,
+            "metodo_pago": metodo_pago,
+            "usuario_creacion": usuario_creacion
+        }
+
+        try:
+            response = self.session.post(url, json=data, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al renovar membresía: {e}")
+            raise
+
     # ==================== CLIENTES ====================
 
     def get_cliente_por_dni(self, dni: str) -> Optional[Dict[str, Any]]:

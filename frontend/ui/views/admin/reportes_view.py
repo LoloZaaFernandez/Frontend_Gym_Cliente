@@ -404,62 +404,6 @@ def show_reportes_view(page: ft.Page, auth_service, on_section_click, current_se
 
             # Actualizar contenido - Diseño minimalista y cohesivo
             content_pagos.content = ft.Column([
-                # Filtros de período - estilo minimalista unificado
-                ft.Row([
-                    ft.Container(
-                        content=ft.Row([
-                            ft.Icon(ft.Icons.TODAY_ROUNDED, size=16, color=COLORS_REPORTES["primary"]),
-                            ft.Container(width=Theme.SPACING["xs"]),
-                            ft.Text("Hoy", size=Theme.FONT_SIZE["sm"], weight=Theme.FONT_WEIGHT["medium"], color=Theme.TEXT_PRIMARY),
-                        ]),
-                        padding=ft.padding.symmetric(horizontal=Theme.SPACING["md"], vertical=Theme.SPACING["sm"]),
-                        bgcolor=Theme.CARD_BG,
-                        border_radius=Theme.RADIUS["md"],
-                        border=ft.border.all(1, f"{COLORS_REPORTES['primary']}50"),
-                        on_click=lambda _: cambiar_periodo("dia"),
-                        ink=True,
-                    ),
-                    ft.Container(
-                        content=ft.Row([
-                            ft.Icon(ft.Icons.DATE_RANGE_ROUNDED, size=16, color=COLORS_REPORTES["primary"]),
-                            ft.Container(width=Theme.SPACING["xs"]),
-                            ft.Text("Semana", size=Theme.FONT_SIZE["sm"], weight=Theme.FONT_WEIGHT["medium"], color=Theme.TEXT_PRIMARY),
-                        ]),
-                        padding=ft.padding.symmetric(horizontal=Theme.SPACING["md"], vertical=Theme.SPACING["sm"]),
-                        bgcolor=Theme.CARD_BG,
-                        border_radius=Theme.RADIUS["md"],
-                        border=ft.border.all(1, f"{COLORS_REPORTES['primary']}50"),
-                        on_click=lambda _: cambiar_periodo("semana"),
-                        ink=True,
-                    ),
-                    ft.Container(
-                        content=ft.Row([
-                            ft.Icon(ft.Icons.CALENDAR_MONTH_ROUNDED, size=16, color=COLORS_REPORTES["primary"]),
-                            ft.Container(width=Theme.SPACING["xs"]),
-                            ft.Text("Mes", size=Theme.FONT_SIZE["sm"], weight=Theme.FONT_WEIGHT["medium"], color=Theme.TEXT_PRIMARY),
-                        ]),
-                        padding=ft.padding.symmetric(horizontal=Theme.SPACING["md"], vertical=Theme.SPACING["sm"]),
-                        bgcolor=Theme.CARD_BG,
-                        border_radius=Theme.RADIUS["md"],
-                        border=ft.border.all(1, f"{COLORS_REPORTES['primary']}50"),
-                        on_click=lambda _: cambiar_periodo("mes"),
-                        ink=True,
-                    ),
-                    ft.Container(
-                        content=ft.Row([
-                            ft.Icon(ft.Icons.CALENDAR_TODAY_ROUNDED, size=16, color=COLORS_REPORTES["primary"]),
-                            ft.Container(width=Theme.SPACING["xs"]),
-                            ft.Text("Año", size=Theme.FONT_SIZE["sm"], weight=Theme.FONT_WEIGHT["medium"], color=Theme.TEXT_PRIMARY),
-                        ]),
-                        padding=ft.padding.symmetric(horizontal=Theme.SPACING["md"], vertical=Theme.SPACING["sm"]),
-                        bgcolor=Theme.CARD_BG,
-                        border_radius=Theme.RADIUS["md"],
-                        border=ft.border.all(1, f"{COLORS_REPORTES['primary']}50"),
-                        on_click=lambda _: cambiar_periodo("anio"),
-                        ink=True,
-                    ),
-                ], spacing=Theme.SPACING["sm"]),
-                ft.Container(height=Theme.SPACING["xl"]),
                 stats,
                 ft.Container(height=Theme.SPACING["xl"]),
                 # Desglose por método
