@@ -138,6 +138,36 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
         visible=False
     )
 
+    # Campos para nuevo registro con membresía
+    membresia_dropdown = ft.Dropdown(
+        label="Membresía *",
+        hint_text="Selecciona una membresía",
+        options=[],  # Se llenará dinámicamente
+        color=Theme.TEXT_PRIMARY,
+        border_color=Theme.BORDER_DEFAULT,
+        focused_border_color=Theme.PRIMARY,
+        bgcolor=Theme.CARD_BG,
+        visible=True
+    )
+
+    metodo_pago_dropdown = ft.Dropdown(
+        label="Método de Pago *",
+        hint_text="Selecciona método de pago",
+        options=[
+            ft.dropdown.Option("Efectivo"),
+            ft.dropdown.Option("Yape"),
+            ft.dropdown.Option("Tarjeta"),
+            ft.dropdown.Option("Transferencia"),
+            ft.dropdown.Option("Plin"),
+        ],
+        value="Efectivo",
+        color=Theme.TEXT_PRIMARY,
+        border_color=Theme.BORDER_DEFAULT,
+        focused_border_color=Theme.PRIMARY,
+        bgcolor=Theme.CARD_BG,
+        visible=True
+    )
+
     # Campo de búsqueda
     search_field = ft.TextField(
         hint_text="Buscar cliente...",
@@ -313,6 +343,23 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
     # ==========================================
     # FUNCIONES CRUD
     # ==========================================
+    def load_membresias():
+        """Cargar membresías disponibles en el dropdown"""
+        try:
+            membresias = api.get_membresias(estado="Activa")
+            membresia_dropdown.options = [
+                ft.dropdown.Option(
+                    key=str(m['id']),
+                    text=f"{m['nombre_membresia']} - {m['tipo_membresia']}"
+                )
+                for m in membresias
+            ]
+            if membresias:
+                membresia_dropdown.value = str(membresias[0]['id'])
+        except Exception as e:
+            print(f"Error al cargar membresías: {e}")
+            membresia_dropdown.options = []
+
     def load_clientes():
         nonlocal clientes_list, clientes_filtrados
         try:
@@ -526,7 +573,11 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
         apellidos_field.error_text = None
         correo_field.error_text = None
         telefono_field.error_text = None
+        membresia_dropdown.error_text = None
+        metodo_pago_dropdown.error_text = None
         estado_dropdown.visible = False
+        membresia_dropdown.visible = True
+        metodo_pago_dropdown.visible = True
         update_view()
 
     def save_cliente(e):
@@ -536,8 +587,10 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
         apellidos_field.error_text = None
         correo_field.error_text = None
         telefono_field.error_text = None
+        membresia_dropdown.error_text = None
+        metodo_pago_dropdown.error_text = None
 
-        # Validar
+        # Validar campos básicos
         errores = []
         if not dni_field.value or len(dni_field.value) != 8:
             dni_field.error_text = "DNI inválido (8 dígitos)"
@@ -555,39 +608,100 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
             telefono_field.error_text = "Teléfono debe tener 9 dígitos"
             errores.append("Teléfono")
 
+        # Validar campos de membresía solo para nuevo cliente
+        if not selected_cliente:
+            if not membresia_dropdown.value:
+                membresia_dropdown.error_text = "Seleccione una membresía"
+                errores.append("Membresía")
+            if not metodo_pago_dropdown.value:
+                metodo_pago_dropdown.error_text = "Seleccione método de pago"
+                errores.append("Método de pago")
+
         if errores:
             mostrar_error(page, f"Complete correctamente: {', '.join(errores)}")
             page.update()
             return
 
-        # Preparar datos
-        cliente_data = {
-            "dni": dni_field.value,
-            "nombre": nombre_field.value,
-            "apellidos": apellidos_field.value,
-            "correo": correo_field.value,
-            "telefono": telefono_field.value or None
-        }
-
-        try:
-            if selected_cliente:
-                cliente_data["estado"] = estado_dropdown.value
-                # Actualizar por DNI
+        # Modo EDICIÓN
+        if selected_cliente:
+            cliente_data = {
+                "dni": dni_field.value,
+                "nombre": nombre_field.value,
+                "apellidos": apellidos_field.value,
+                "correo": correo_field.value,
+                "telefono": telefono_field.value or None,
+                "estado": estado_dropdown.value
+            }
+            try:
                 cliente_encontrado = next((c for c in clientes_list if c['dni'] == selected_cliente['dni']), None)
                 if cliente_encontrado:
                     api.update_cliente(cliente_encontrado['id'], cliente_data)
                     mostrar_exito(page, "Cliente actualizado correctamente")
+                    clear_form()
+                    load_clientes()
                 else:
                     mostrar_error(page, "Cliente no encontrado")
-                    return
-            else:
-                api.create_cliente(cliente_data)
-                mostrar_exito(page, "Cliente creado correctamente")
+            except Exception as e:
+                mostrar_error(page, f"Error: {str(e)}")
+            return
 
-            clear_form()
-            load_clientes()
+        # Modo NUEVO CLIENTE - Flujo con validación y modal
+        def confirmar_y_registrar(e):
+            """Función que se ejecuta cuando el usuario confirma en el modal"""
+            try:
+                # Preparar datos para el registro completo
+                registro_data = {
+                    "dni": dni_field.value,
+                    "nombre": nombre_field.value,
+                    "apellidos": apellidos_field.value,
+                    "correo": correo_field.value,
+                    "telefono": telefono_field.value or None,
+                    "id_membresia": int(membresia_dropdown.value),
+                    "metodo_pago": metodo_pago_dropdown.value,
+                    "usuario_creacion": current_user.get("nombre", "admin")
+                }
+
+                # Registrar cliente completo con membresía
+                resultado = api.registrar_cliente_completo(registro_data)
+                mostrar_exito(page, resultado.get('mensaje', 'Cliente registrado correctamente'))
+                clear_form()
+                load_clientes()
+
+            except Exception as error:
+                mostrar_error(page, f"Error al registrar: {str(error)}")
+
+        # Paso 1: Validar datos con el backend
+        try:
+            validacion_data = {
+                "confirmar_registro": "preparar",
+                "dni": dni_field.value,
+                "nombre": nombre_field.value,
+                "apellidos": apellidos_field.value,
+                "correo": correo_field.value,
+                "telefono": telefono_field.value or None,
+                "id_membresia": int(membresia_dropdown.value),
+                "metodo_pago": metodo_pago_dropdown.value
+            }
+
+            validacion = api.validar_cliente_registro(validacion_data)
+
+            # Paso 2: Si la validación es exitosa, mostrar modal
+            if validacion.get('validacion_exitosa'):
+                from ui.components.molecules.dialogs import create_payment_confirmation_dialog
+
+                dialog = create_payment_confirmation_dialog(
+                    page=page,
+                    resumen=validacion['resumen'],
+                    mensaje=validacion['mensaje'],
+                    on_confirm=confirmar_y_registrar,
+                    on_cancel=lambda _: mostrar_error(page, "Vuelva a intentarlo")
+                )
+                page.open(dialog)
+            else:
+                mostrar_error(page, validacion.get('mensaje', 'Error en la validación'))
+
         except Exception as e:
-            mostrar_error(page, f"Error: {str(e)}")
+            mostrar_error(page, f"Error en validación: {str(e)}")
 
     def edit_cliente(cliente):
         nonlocal selected_cliente
@@ -601,6 +715,9 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
         estado_dropdown.value = cliente.get('estado', 'Activo')
         dni_field.disabled = True
         estado_dropdown.visible = True
+        # Ocultar campos de membresía en modo edición
+        membresia_dropdown.visible = False
+        metodo_pago_dropdown.visible = False
         update_view()
 
     def confirm_delete_cliente_by_dni(dni):
@@ -657,8 +774,12 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
         form_fields_list = [dni_field, nombre_field, apellidos_field, correo_field, telefono_field]
         if estado_dropdown.visible:
             form_fields_list.append(estado_dropdown)
+        if membresia_dropdown.visible:
+            form_fields_list.append(membresia_dropdown)
+        if metodo_pago_dropdown.visible:
+            form_fields_list.append(metodo_pago_dropdown)
 
-        form_title = "Editar Cliente" if edit_mode[0] else "Nuevo Cliente"
+        form_title = "Editar Cliente" if edit_mode[0] else "Nuevo Cliente con Membresía"
 
         form_buttons = [create_outlined_button("Cancelar", lambda _: clear_form(), icon=ft.Icons.CLOSE)]
         if edit_mode[0]:
@@ -798,5 +919,6 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
         )
 
     # Inicializar
+    load_membresias()
     load_clientes()
     update_view()

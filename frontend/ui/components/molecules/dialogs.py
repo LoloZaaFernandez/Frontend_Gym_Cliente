@@ -283,3 +283,198 @@ def create_form_dialog(
     )
 
     return dialog
+
+
+def create_payment_confirmation_dialog(
+    page: ft.Page,
+    resumen: dict,
+    mensaje: str,
+    on_confirm,
+    on_cancel=None
+):
+    """
+    Crear diálogo de confirmación de pago para registro de cliente
+
+    Args:
+        page: Instancia de ft.Page
+        resumen: Diccionario con datos del resumen de validación
+            {
+                "nombre_completo": "Juan Pérez García",
+                "dni": "12345678",
+                "metodo_pago": "Efectivo",
+                "monto": 150.00,
+                "tipo_membresia": "Mensual",
+                "nombre_membresia": "Membresía Mensual"
+            }
+        mensaje: Mensaje de confirmación del servidor
+        on_confirm: Función a ejecutar al confirmar (SÍ)
+        on_cancel: Función a ejecutar al cancelar (NO)
+
+    Returns:
+        ft.AlertDialog configurado
+
+    Ejemplo:
+        >>> dialog = create_payment_confirmation_dialog(
+        ...     page,
+        ...     resumen=data['resumen'],
+        ...     mensaje=data['mensaje'],
+        ...     on_confirm=lambda e: registrar_cliente()
+        ... )
+        >>> page.open(dialog)
+    """
+    from ..atoms.buttons import create_primary_button, create_outlined_button
+
+    def close_and_confirm(e):
+        page.close(dialog)
+        if on_confirm:
+            on_confirm(e)
+
+    def close_and_cancel(e):
+        page.close(dialog)
+        if on_cancel:
+            on_cancel(e)
+
+    # Contenido del diálogo con información del resumen
+    content_controls = [
+        # Pregunta principal
+        ft.Container(
+            content=ft.Text(
+                mensaje,
+                size=Theme.FONT_SIZE["lg"],
+                color=Theme.TEXT_PRIMARY,
+                weight=Theme.FONT_WEIGHT["semibold"],
+                text_align=ft.TextAlign.CENTER
+            ),
+            padding=ft.padding.only(bottom=Theme.SPACING["lg"])
+        ),
+
+        # Información del cliente
+        ft.Container(
+            content=ft.Column([
+                # Nombre completo
+                ft.Row([
+                    ft.Icon(ft.Icons.PERSON, size=20, color=Theme.PRIMARY),
+                    ft.Column([
+                        ft.Text("Cliente", size=Theme.FONT_SIZE["xs"], color=Theme.TEXT_SECONDARY),
+                        ft.Text(
+                            resumen.get('nombre_completo', 'N/A'),
+                            size=Theme.FONT_SIZE["md"],
+                            color=Theme.TEXT_PRIMARY,
+                            weight=Theme.FONT_WEIGHT["semibold"]
+                        ),
+                    ], spacing=2, expand=True),
+                ], spacing=Theme.SPACING["sm"]),
+
+                ft.Divider(height=1, color=Theme.BORDER_DEFAULT),
+
+                # DNI
+                ft.Row([
+                    ft.Icon(ft.Icons.BADGE, size=20, color=Theme.PRIMARY),
+                    ft.Column([
+                        ft.Text("DNI", size=Theme.FONT_SIZE["xs"], color=Theme.TEXT_SECONDARY),
+                        ft.Text(
+                            resumen.get('dni', 'N/A'),
+                            size=Theme.FONT_SIZE["md"],
+                            color=Theme.TEXT_PRIMARY,
+                            weight=Theme.FONT_WEIGHT["medium"]
+                        ),
+                    ], spacing=2, expand=True),
+                ], spacing=Theme.SPACING["sm"]),
+
+                ft.Divider(height=1, color=Theme.BORDER_DEFAULT),
+
+                # Membresía
+                ft.Row([
+                    ft.Icon(ft.Icons.CARD_MEMBERSHIP, size=20, color=Theme.PRIMARY),
+                    ft.Column([
+                        ft.Text("Membresía", size=Theme.FONT_SIZE["xs"], color=Theme.TEXT_SECONDARY),
+                        ft.Text(
+                            resumen.get('nombre_membresia', 'N/A'),
+                            size=Theme.FONT_SIZE["md"],
+                            color=Theme.TEXT_PRIMARY,
+                            weight=Theme.FONT_WEIGHT["medium"]
+                        ),
+                        ft.Text(
+                            f"Tipo: {resumen.get('tipo_membresia', 'N/A')}",
+                            size=Theme.FONT_SIZE["xs"],
+                            color=Theme.TEXT_SECONDARY
+                        ),
+                    ], spacing=2, expand=True),
+                ], spacing=Theme.SPACING["sm"]),
+
+                ft.Divider(height=1, color=Theme.BORDER_DEFAULT),
+
+                # Monto
+                ft.Row([
+                    ft.Icon(ft.Icons.ATTACH_MONEY, size=20, color=Theme.SUCCESS),
+                    ft.Column([
+                        ft.Text("Monto", size=Theme.FONT_SIZE["xs"], color=Theme.TEXT_SECONDARY),
+                        ft.Text(
+                            f"S/ {resumen.get('monto', 0):.2f}",
+                            size=Theme.FONT_SIZE["xl"],
+                            color=Theme.SUCCESS,
+                            weight=Theme.FONT_WEIGHT["bold"]
+                        ),
+                    ], spacing=2, expand=True),
+                ], spacing=Theme.SPACING["sm"]),
+
+                ft.Divider(height=1, color=Theme.BORDER_DEFAULT),
+
+                # Método de pago
+                ft.Row([
+                    ft.Icon(ft.Icons.PAYMENT, size=20, color=Theme.PRIMARY),
+                    ft.Column([
+                        ft.Text("Método de pago", size=Theme.FONT_SIZE["xs"], color=Theme.TEXT_SECONDARY),
+                        ft.Text(
+                            resumen.get('metodo_pago', 'N/A'),
+                            size=Theme.FONT_SIZE["md"],
+                            color=Theme.TEXT_PRIMARY,
+                            weight=Theme.FONT_WEIGHT["medium"]
+                        ),
+                    ], spacing=2, expand=True),
+                ], spacing=Theme.SPACING["sm"]),
+
+            ], spacing=Theme.SPACING["md"]),
+            bgcolor=f"{Theme.PRIMARY}08",
+            padding=Theme.SPACING["lg"],
+            border_radius=Theme.RADIUS["md"],
+            border=ft.border.all(1, f"{Theme.PRIMARY}30")
+        ),
+    ]
+
+    # Botones de acción
+    actions = [
+        create_outlined_button("NO, Volver a intentar", close_and_cancel, icon=ft.Icons.CLOSE),
+        create_primary_button("SÍ, Confirmar pago", close_and_confirm, icon=ft.Icons.CHECK_CIRCLE),
+    ]
+
+    dialog = ft.AlertDialog(
+        modal=True,
+        title=ft.Row([
+            ft.Icon(
+                ft.Icons.HELP_OUTLINE,
+                size=Theme.ICON_SIZE["lg"],
+                color=Theme.PRIMARY
+            ),
+            ft.Text(
+                "Confirmar Registro y Pago",
+                size=Theme.FONT_SIZE["xl"],
+                weight=Theme.FONT_WEIGHT["bold"],
+                color=Theme.TEXT_PRIMARY
+            ),
+        ], spacing=Theme.SPACING["md"]),
+        content=ft.Container(
+            content=ft.Column(
+                content_controls,
+                tight=True,
+                spacing=Theme.SPACING["md"]
+            ),
+            width=500
+        ),
+        actions=actions,
+        actions_alignment=ft.MainAxisAlignment.END,
+        bgcolor=Theme.CARD_BG,
+        shape=ft.RoundedRectangleBorder(radius=Theme.RADIUS["lg"]),
+    )
+
+    return dialog

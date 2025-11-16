@@ -9,14 +9,12 @@ import os
 # Agregar paths
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config.theme import Theme
-from config.settings import USUARIO_SISTEMA, API_BASE_URL, BACKGROUND_IMAGE
+from config.settings import USUARIO_SISTEMA, BACKGROUND_IMAGE
 from components.buttons import create_large_button, create_back_button, create_success_button
 from components.inputs import create_text_input, create_dni_input, create_phone_input, create_email_input
 from components.cards import create_card_container, create_info_card, create_alert_card
 from components.membership_card import create_membership_card
 from services.api_service import APIService
-from services.websocket_service import enviar_notificacion_async
-from utils.datetime_utils import parse_datetime_from_api, format_date_display
 
 
 def show_registro_view(page: ft.Page, api_service: APIService, on_back):
@@ -161,7 +159,7 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
         try:
             resultado = api_service.verificar_dni(dni_input.value)
 
-            if resultado.get("existe", False):
+            if not resultado.get("disponible", False):
                 mostrar_error(
                     f"El DNI {dni_input.value} ya está registrado. "
                     "Si eres tú, ve a la opción de Asistencia."
@@ -268,46 +266,11 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
 
             print(f"Resultado del registro: {resultado}")
 
-            if resultado.get("registrado", False):
-                print("OK - Cliente registrado exitosamente")
-
-                # Enviar notificación WebSocket al admin (en segundo plano)
-                try:
-                    cliente = resultado.get("cliente", {})
-                    membresia_info = resultado.get("membresia", {})
-                    pago_info = resultado.get("pago", {})
-                    metodo_pago = form_data["metodo_pago"]
-
-                    # Obtener datos de la membresía seleccionada
-                    membresia_seleccionada = next(
-                        (m for m in opciones_membresias if m["id"] == form_data["id_membresia"]),
-                        {}
-                    )
-
-                    print(f"📡 Intentando enviar notificación WebSocket al admin...")
-                    print(f"   Cliente: {cliente.get('nombre', '')} {cliente.get('apellidos', '')}")
-                    print(f"   Método de pago: {metodo_pago}")
-
-                    # Construir URL del WebSocket
-                    ws_url = API_BASE_URL.replace("http://", "ws://").replace("https://", "wss://")
-                    ws_url = f"{ws_url}/ws/notificaciones"
-
-                    # Enviar notificación en segundo plano (no bloquear UI)
-                    enviar_notificacion_async(
-                        cliente=cliente,
-                        membresia=membresia_seleccionada or membresia_info,
-                        metodo_pago=metodo_pago,
-                        pago=pago_info,
-                        ws_url=ws_url
-                    )
-
-                    print(f"⚠️ PAGO CON {metodo_pago.upper()} - Requiere confirmación del admin")
-                    print("   (Se envió notificación. Verifica arriba si fue exitosa o si websocket-client no está instalado)")
-
-                except Exception as ws_error:
-                    print(f"⚠️ Error al enviar notificación WebSocket (no crítico): {ws_error}")
-                    print(f"   El registro se completó correctamente, solo falló la notificación al admin.")
-                    # No detener el flujo si falla la notificación
+            if resultado.get("registro_creado", False):
+                print("OK - Registro pendiente creado exitosamente")
+                print(f"ID Registro Pendiente: {resultado.get('id_registro_pendiente')}")
+                print(f"⚠️ PAGO CON {form_data['metodo_pago'].upper()} - Requiere confirmación del admin")
+                print("📡 El backend ya envió la notificación WebSocket al admin")
 
                 # Mostrar pantalla de éxito
                 mostrar_registro_exitoso(resultado)
@@ -322,44 +285,38 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
 
     def mostrar_registro_exitoso(resultado):
         """Mostrar pantalla de registro exitoso"""
-        cliente = resultado.get("cliente", {})
-        pago_info = resultado.get("pago", {})
-        membresia_info = resultado.get("membresia", {})
+        # Obtener datos del resumen (nueva estructura de respuesta)
+        resumen = resultado.get("resumen", {})
         metodo_pago = form_data.get("metodo_pago", "Efectivo")
+        id_registro_pendiente = resultado.get("id_registro_pendiente")
 
         # DEBUG: Imprimir lo que viene del backend
         print(f"🔍 DEBUG - Resultado completo: {resultado}")
-        print(f"🔍 DEBUG - Cliente: {cliente}")
-        print(f"🔍 DEBUG - Membresia info del backend: {membresia_info}")
+        print(f"🔍 DEBUG - Resumen: {resumen}")
+        print(f"🔍 DEBUG - ID Registro Pendiente: {id_registro_pendiente}")
 
-        # Procesar fecha de membresía usando utilidades
-        fecha_membresia_dt = parse_datetime_from_api(cliente.get('fecha_membresia', ''))
-        fecha_membresia = format_date_display(fecha_membresia_dt) if fecha_membresia_dt else "Sin fecha"
-
-        # Obtener nombre de membresía - primero del backend, luego de la selección local
-        nombre_membresia = (
-            membresia_info.get('nombre_membresia') or
-            membresia_info.get('nombre') or
-            # Fallback: buscar en la lista local
-            next((m.get('nombre') or m.get('nombre_membresia', 'Membresía')
-                  for m in opciones_membresias if m["id"] == form_data["id_membresia"]), 'Membresía')
-        )
+        # Obtener datos del resumen
+        nombre_completo = resumen.get("nombre_completo", f"{form_data['nombre']} {form_data['apellidos']}")
+        dni = resumen.get("dni", form_data["dni"])
+        nombre_membresia = resumen.get("nombre_membresia", "Membresía")
+        tipo_membresia = resumen.get("tipo_membresia", "")
+        monto = resumen.get("monto", 0.0)
 
         print(f"🔍 DEBUG - Nombre de membresía final: {nombre_membresia}")
 
         contenido_exito = ft.Column([
-            # Ícono de éxito grande y moderno
+            # Ícono de pendiente grande y moderno
             ft.Container(
                 content=ft.Icon(
-                    ft.Icons.CHECK_CIRCLE_ROUNDED,
+                    ft.Icons.SCHEDULE_ROUNDED,
                     size=Theme.ICON_SIZE["2xl"],
-                    color=Theme.SUCCESS
+                    color=Theme.WARNING
                 ),
                 width=120,
                 height=120,
                 bgcolor="#1A1A1A",
                 border_radius=60,
-                border=ft.border.all(4, Theme.SUCCESS),
+                border=ft.border.all(4, Theme.WARNING),
                 alignment=ft.alignment.center,
                 shadow=Theme.get_shadow("lg"),
             ),
@@ -368,15 +325,15 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
 
             # Título
             ft.Text(
-                "¡REGISTRO EXITOSO!",
+                "¡REGISTRO PENDIENTE!",
                 size=Theme.FONT_SIZE["4xl"],
                 weight=Theme.FONT_WEIGHT["extrabold"],
-                color=Theme.SUCCESS,
+                color=Theme.WARNING,
                 text_align=ft.TextAlign.CENTER
             ),
 
             ft.Text(
-                f"Bienvenido, {cliente.get('nombre', '')} {cliente.get('apellidos', '')}",
+                f"Hola, {nombre_completo}",
                 size=Theme.FONT_SIZE["xl"],
                 weight=Theme.FONT_WEIGHT["medium"],
                 color=Theme.TEXT_PRIMARY,
@@ -398,19 +355,19 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
                     ft.Container(height=Theme.SPACING["md"]),
                     ft.Row([
                         ft.Icon(ft.Icons.BADGE_ROUNDED, color=Theme.PRIMARY, size=28),
-                        ft.Text(f"DNI: {cliente.get('dni', '')}", size=Theme.FONT_SIZE["lg"]),
+                        ft.Text(f"DNI: {dni}", size=Theme.FONT_SIZE["lg"]),
                     ], spacing=Theme.SPACING["sm"]),
                     ft.Row([
-                        ft.Icon(ft.Icons.CARD_MEMBERSHIP_ROUNDED, color=Theme.SUCCESS, size=28),
+                        ft.Icon(ft.Icons.CARD_MEMBERSHIP_ROUNDED, color=Theme.WARNING, size=28),
                         ft.Text(f"Membresía: {nombre_membresia}",
                                size=Theme.FONT_SIZE["lg"]),
                     ], spacing=Theme.SPACING["sm"]),
                     ft.Row([
-                        ft.Icon(ft.Icons.CALENDAR_TODAY_ROUNDED, color=Theme.SUCCESS, size=28),
-                        ft.Text(f"Válida hasta: {fecha_membresia}",
+                        ft.Icon(ft.Icons.ATTACH_MONEY_ROUNDED, color=Theme.WARNING, size=28),
+                        ft.Text(f"Monto: S/ {monto:.2f}",
                                size=Theme.FONT_SIZE["lg"],
                                weight=Theme.FONT_WEIGHT["semibold"],
-                               color=Theme.SUCCESS),
+                               color=Theme.WARNING),
                     ], spacing=Theme.SPACING["sm"]),
                     ft.Divider(color=Theme.BORDER_LIGHT, height=15),
                     ft.Row([
@@ -447,7 +404,7 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
                     "Finalizar",
                     lambda e: on_back(),
                     icon=ft.Icons.HOME_ROUNDED,
-                    bgcolor=Theme.SUCCESS
+                    bgcolor=Theme.PRIMARY
                 ),
                 width=280,
             )

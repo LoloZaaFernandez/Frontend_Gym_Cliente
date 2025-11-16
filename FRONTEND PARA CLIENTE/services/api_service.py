@@ -47,7 +47,7 @@ class APIService:
 
     def verificar_dni(self, dni: str) -> Dict[str, Any]:
         """
-        Verificar si un DNI ya está registrado
+        Verificar si un DNI está disponible para registro
 
         Endpoint: GET /api/registro/verificar-dni/{dni}
 
@@ -56,9 +56,9 @@ class APIService:
 
         Returns:
             {
-                "existe": true/false,
-                "mensaje": "DNI ya registrado" o "DNI disponible",
-                "cliente": {...} (si existe)
+                "dni": "12345678",
+                "disponible": true/false,
+                "mensaje": "DNI disponible" o "DNI ya registrado"
             }
         """
         url = f"{self.base_url}/api/registro/verificar-dni/{dni}"
@@ -110,9 +110,11 @@ class APIService:
         usuario_creacion: str = "tablet_gym"
     ) -> Dict[str, Any]:
         """
-        Registrar un nuevo cliente con membresía en un solo paso
+        Crear registro pendiente de confirmación
 
         Endpoint: POST /api/registro/cliente-con-validacion
+
+        Este endpoint crea un registro PENDIENTE que debe ser confirmado por el administrador.
 
         Args:
             dni: Número de DNI
@@ -121,22 +123,27 @@ class APIService:
             correo: Correo electrónico
             telefono: Número de teléfono
             id_membresia: ID de la membresía seleccionada
-            metodo_pago: Método de pago ("Efectivo", "Yape", "Transferencia")
+            metodo_pago: Método de pago ("Efectivo", "Yape")
             usuario_creacion: Usuario que registra (default: "tablet_gym")
 
         Returns:
             {
-                "registrado": true,
-                "mensaje": "Cliente registrado exitosamente",
-                "cliente": {...},
-                "membresia": {...},
-                "pago": {...},
-                "requiere_confirmacion_yape": true/false
+                "registro_creado": true,
+                "id_registro_pendiente": 5,
+                "mensaje": "Registro pendiente creado. Esperando confirmación...",
+                "resumen": {
+                    "nombre_completo": "Juan Pérez García",
+                    "dni": "12345678",
+                    "metodo_pago": "Efectivo",
+                    "monto": 150.00,
+                    "tipo_membresia": "Mensual",
+                    "nombre_membresia": "Membresía Mensual"
+                }
             }
         """
         url = f"{self.base_url}/api/registro/cliente-con-validacion"
         data = {
-            "confirmar_registro": "si",
+            "confirmar_registro": "preparar",
             "dni": dni,
             "nombre": nombre,
             "apellidos": apellidos,

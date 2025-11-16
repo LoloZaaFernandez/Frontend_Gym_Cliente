@@ -73,6 +73,53 @@ class APIService:
 
     # ==================== CLIENTES ====================
 
+    def validar_cliente_registro(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Validar datos de cliente antes del registro - NO registra"""
+        url = f"{self.base_url}/api/registro/cliente-con-validacion"
+        try:
+            response = self.session.post(url, json=data, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error en validación: {str(e)}")
+
+    def registrar_cliente_completo(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Registrar cliente con membresía y pago (después de confirmación)"""
+        url = f"{self.base_url}/api/registro/cliente-completo"
+        try:
+            response = self.session.post(url, json=data, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al registrar cliente: {str(e)}")
+
+    def get_registros_pendientes(self) -> List[Dict[str, Any]]:
+        """Obtener lista de registros pendientes de confirmación"""
+        url = f"{self.base_url}/api/registro/registros-pendientes"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener registros pendientes: {e}")
+            return []
+
+    def confirmar_registro_pendiente(self, id_registro: int) -> Dict[str, Any]:
+        """Confirmar un registro pendiente y crear el cliente"""
+        url = f"{self.base_url}/api/registro/confirmar-registro/{id_registro}"
+        try:
+            response = self.session.post(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al confirmar registro: {str(e)}")
+
+    def rechazar_registro_pendiente(self, id_registro: int, motivo: str = "Pago no verificado") -> Dict[str, Any]:
+        """Rechazar un registro pendiente"""
+        url = f"{self.base_url}/api/registro/rechazar-registro/{id_registro}"
+        params = {"motivo": motivo}
+        try:
+            response = self.session.post(url, params=params, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            raise ValueError(f"Error al rechazar registro: {str(e)}")
+
     def get_clientes(self, estado: Optional[str] = None) -> List[Dict[str, Any]]:
         """Obtener lista de clientes"""
         url = f"{self.base_url}/api/clientes"

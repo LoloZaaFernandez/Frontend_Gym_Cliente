@@ -10,6 +10,7 @@ from ui.layouts import create_dashboard_layout, create_activity_widget
 from ui.components.molecules import create_card_container
 from ui.components.atoms import create_primary_button
 from services.api_service import APIService
+from services.websocket_service import WebSocketService
 from ui.utils.datetime_utils import get_now_local, parse_datetime_from_api, format_time_display
 
 
@@ -44,6 +45,147 @@ def show_admin_dashboard(page: ft.Page, auth_service, on_logout, on_section_clic
 
     # Inicializar API Service
     api = APIService()
+
+    # Nota: El WebSocket y modal de confirmación ahora son globales (main.py)
+    # y funcionan en todas las vistas automáticamente
+
+    # ==========================================
+    # FUNCIONES AUXILIARES (ya no se usan, quedan para referencia)
+    # ==========================================
+    def mostrar_modal_confirmacion_OLD(datos: dict):
+        """Mostrar modal para confirmar o rechazar un registro pendiente"""
+        print(f"🎯 mostrar_modal_confirmacion llamado con datos: {datos}")
+
+        id_registro = datos.get("id_registro_pendiente")
+        nombre_completo = datos.get("nombre_completo", "")
+        monto = datos.get("monto", 0)
+        metodo_pago = datos.get("metodo_pago", "")
+        dni = datos.get("dni", "")
+        nombre_membresia = datos.get("nombre_membresia", "")
+
+        def cerrar_modal(e):
+            print("🔴 Cerrando modal")
+            modal.open = False
+            page.update()
+
+        def confirmar(e):
+            try:
+                # Llamar al API para confirmar el registro
+                resultado = api.confirmar_registro_pendiente(id_registro)
+                print(f"✅ Registro confirmado: {resultado}")
+
+                # Mostrar snackbar de éxito
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(
+                        f"✅ Registro confirmado: {nombre_completo}",
+                        color=ft.Colors.WHITE
+                    ),
+                    bgcolor=ft.Colors.GREEN,
+                    duration=3000
+                )
+                page.snack_bar.open = True
+                cerrar_modal(e)
+
+            except Exception as error:
+                print(f"❌ Error al confirmar registro: {error}")
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"❌ Error: {str(error)}", color=ft.Colors.WHITE),
+                    bgcolor=ft.Colors.RED,
+                    duration=3000
+                )
+                page.snack_bar.open = True
+                page.update()
+
+        def rechazar(e):
+            try:
+                # Llamar al API para rechazar el registro
+                resultado = api.rechazar_registro_pendiente(id_registro, "Pago no verificado")
+                print(f"❌ Registro rechazado: {resultado}")
+
+                # Mostrar snackbar
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(
+                        f"❌ Registro rechazado: {nombre_completo}",
+                        color=ft.Colors.WHITE
+                    ),
+                    bgcolor=ft.Colors.ORANGE,
+                    duration=3000
+                )
+                page.snack_bar.open = True
+                cerrar_modal(e)
+
+            except Exception as error:
+                print(f"❌ Error al rechazar registro: {error}")
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"❌ Error: {str(error)}", color=ft.Colors.WHITE),
+                    bgcolor=ft.Colors.RED,
+                    duration=3000
+                )
+                page.snack_bar.open = True
+                page.update()
+
+        # Crear el modal
+        modal = ft.AlertDialog(
+            modal=True,
+            title=ft.Row([
+                ft.Icon(ft.Icons.NOTIFICATIONS_ACTIVE_ROUNDED, color=Theme.WARNING, size=32),
+                ft.Text("Nuevo Registro Pendiente", size=20, weight=ft.FontWeight.BOLD),
+            ], spacing=10),
+            content=ft.Container(
+                content=ft.Column([
+                    ft.Text(
+                        f"¿{nombre_completo} realizó el pago de S/ {monto:.2f}?",
+                        size=16,
+                        weight=ft.FontWeight.BOLD,
+                        color=Theme.TEXT_PRIMARY
+                    ),
+                    ft.Divider(),
+                    ft.Row([
+                        ft.Icon(ft.Icons.BADGE_ROUNDED, color=Theme.PRIMARY, size=20),
+                        ft.Text(f"DNI: {dni}", size=14),
+                    ], spacing=8),
+                    ft.Row([
+                        ft.Icon(ft.Icons.CARD_MEMBERSHIP_ROUNDED, color=Theme.SUCCESS, size=20),
+                        ft.Text(f"Membresía: {nombre_membresia}", size=14),
+                    ], spacing=8),
+                    ft.Row([
+                        ft.Icon(ft.Icons.PAYMENT_ROUNDED, color=Theme.WARNING, size=20),
+                        ft.Text(f"Método de pago: {metodo_pago}", size=14),
+                    ], spacing=8),
+                    ft.Row([
+                        ft.Icon(ft.Icons.ATTACH_MONEY_ROUNDED, color=Theme.WARNING, size=20),
+                        ft.Text(f"Monto: S/ {monto:.2f}", size=14, weight=ft.FontWeight.BOLD),
+                    ], spacing=8),
+                ], spacing=10),
+                padding=10,
+            ),
+            actions=[
+                ft.TextButton(
+                    "Rechazar",
+                    on_click=rechazar,
+                    style=ft.ButtonStyle(
+                        color=ft.Colors.RED,
+                        bgcolor=f"{ft.Colors.RED}20"
+                    )
+                ),
+                ft.ElevatedButton(
+                    "Confirmar Pago",
+                    on_click=confirmar,
+                    style=ft.ButtonStyle(
+                        color=ft.Colors.WHITE,
+                        bgcolor=ft.Colors.GREEN
+                    )
+                ),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+        print(f"🟢 Asignando modal a page.dialog")
+        page.dialog = modal
+        modal.open = True
+        print(f"🟢 Llamando page.update() para mostrar modal")
+        page.update()
+        print(f"✅ Modal debería estar visible ahora")
 
     # ==========================================
     # PALETA DE COLORES CON ALTO CONTRASTE
