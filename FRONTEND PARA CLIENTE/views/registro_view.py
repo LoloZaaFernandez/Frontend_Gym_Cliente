@@ -19,13 +19,17 @@ from services.api_service import APIService
 
 def show_registro_view(page: ft.Page, api_service: APIService, on_back):
     """
-    Mostrar vista de registro de nuevos clientes
+    Mostrar vista de registro de nuevos clientes - RESPONSIVE
 
     Args:
         page: Instancia de la página
         api_service: Servicio API
         on_back: Función para volver a la pantalla inicial
     """
+
+    # Obtener dimensiones de la página para cálculos responsive
+    page_width = page.window.width or page.width or Theme.BASE_WIDTH
+    page_height = page.window.height or page.height or Theme.BASE_HEIGHT
 
     # Estado del formulario
     form_data = {
@@ -41,16 +45,16 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
     opciones_membresias = []
     metodos_pago = []
 
-    # Referencias a controles
-    dni_input = create_dni_input()
-    nombre_input = create_text_input("Nombre", hint_text="Ej: Juan", icon=ft.Icons.PERSON)
-    apellidos_input = create_text_input("Apellidos", hint_text="Ej: Pérez García", icon=ft.Icons.PERSON_OUTLINE)
-    correo_input = create_email_input()
-    telefono_input = create_phone_input()
+    # Referencias a controles con dimensiones responsive
+    dni_input = create_dni_input(page_width=page_width, page_height=page_height)
+    nombre_input = create_text_input("Nombre", hint_text="Ej: Juan", icon=ft.Icons.PERSON, page_width=page_width, page_height=page_height)
+    apellidos_input = create_text_input("Apellidos", hint_text="Ej: Pérez García", icon=ft.Icons.PERSON_OUTLINE, page_width=page_width, page_height=page_height)
+    correo_input = create_email_input(page_width=page_width, page_height=page_height)
+    telefono_input = create_phone_input(page_width=page_width, page_height=page_height)
 
     mensaje_error = ft.Container()
-    btn_siguiente = create_success_button("Siguiente", None, icon=ft.Icons.ARROW_FORWARD)
-    btn_registrar = create_success_button("Confirmar Registro", None, icon=ft.Icons.CHECK)
+    btn_siguiente = create_success_button("Siguiente", None, icon=ft.Icons.ARROW_FORWARD, page_width=page_width, page_height=page_height)
+    btn_registrar = create_success_button("Confirmar Registro", None, icon=ft.Icons.CHECK, page_width=page_width, page_height=page_height)
 
     # Contenedores de pasos
     paso1_container = ft.Container()
@@ -62,7 +66,7 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
 
     def mostrar_error(mensaje: str):
         """Mostrar mensaje de error"""
-        mensaje_error.content = create_alert_card(mensaje, "error")
+        mensaje_error.content = create_alert_card(mensaje, "error", page_width=page_width)
         try:
             mensaje_error.update()
         except:
@@ -312,8 +316,8 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
                     size=Theme.ICON_SIZE["2xl"],
                     color=Theme.WARNING
                 ),
-                width=120,
-                height=120,
+                width=Theme.ICON_SIZE["3xl"],
+                height=Theme.ICON_SIZE["3xl"],
                 bgcolor="#1A1A1A",
                 border_radius=60,
                 border=ft.border.all(4, Theme.WARNING),
@@ -393,7 +397,8 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
                 f"PAGO CON {metodo_pago.upper()} - CONFIRMACION PENDIENTE\n\n"
                 "El personal del gimnasio ha sido notificado. "
                 "Por favor, espera la confirmacion del pago por parte del administrador.",
-                "warning"
+                "warning",
+                page_width=page_width
             ),
 
             ft.Container(height=Theme.SPACING["xl"]),
@@ -404,7 +409,9 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
                     "Finalizar",
                     lambda e: on_back(),
                     icon=ft.Icons.HOME_ROUNDED,
-                    bgcolor=Theme.PRIMARY
+                    bgcolor=Theme.PRIMARY,
+                    page_width=page_width,
+                    page_height=page_height
                 ),
                 width=280,
             )
@@ -485,7 +492,7 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
             mensaje_error,
 
             ft.Row([
-                create_back_button(lambda e: on_back()),
+                create_back_button(lambda e: on_back(), page_width=page_width, page_height=page_height),
                 btn_siguiente,
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, width=500)
 
@@ -505,7 +512,8 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
             membresias_cards.append(
                 create_alert_card(
                     "No hay membresías disponibles. Por favor, contacta al administrador.",
-                    "error"
+                    "error",
+                    page_width=page_width
                 )
             )
         else:
@@ -517,7 +525,8 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
                     membresia=memb,
                     precio_actual=memb['precio'],
                     on_select_click=lambda e, mid=memb["id"]: seleccionar_membresia(mid),
-                    is_selected=seleccionada
+                    is_selected=seleccionada,
+                    page_width=page_width
                 )
                 membresias_cards.append(card)
 
@@ -598,8 +607,8 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
             mensaje_error,
 
             ft.Row([
-                create_back_button(volver_paso1, "Volver"),
-                create_success_button("Continuar", ir_a_paso3, icon=ft.Icons.ARROW_FORWARD),
+                create_back_button(volver_paso1, "Volver", page_width=page_width, page_height=page_height),
+                create_success_button("Continuar", ir_a_paso3, icon=ft.Icons.ARROW_FORWARD, page_width=page_width, page_height=page_height),
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, width=600)
 
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=Theme.SPACING["md"])
@@ -813,7 +822,7 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
         elementos_paso3.extend([
             mensaje_error,
             ft.Row([
-                create_back_button(volver_paso2, "Volver"),
+                create_back_button(volver_paso2, "Volver", page_width=page_width, page_height=page_height),
                 btn_registrar,
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, width=600)
         ])

@@ -160,6 +160,8 @@ class BlessedTheme:
     # ========================================
     # 📐 DIMENSIONES COMUNES (Tablet Landscape 1280x800)
     # ========================================
+    # NOTA: Estas dimensiones son para referencia base (1280x800)
+    # Usar get_responsive_dimensions() para calcular dimensiones adaptativas
     DIMENSIONS = {
         # Anchos
         "card_width_sm": 250,
@@ -180,6 +182,30 @@ class BlessedTheme:
         "card_height_md": 200,
         "card_height_lg": 280,
     }
+
+    # ========================================
+    # 📐 DIMENSIONES RESPONSIVE (Porcentajes basados en viewport)
+    # ========================================
+    # Porcentajes del ancho de la página para diferentes elementos
+    RESPONSIVE_WIDTHS = {
+        # Cards
+        "card_sm_percent": 19.5,    # ~250px en 1280px
+        "card_md_percent": 31.25,   # ~400px en 1280px
+        "card_lg_percent": 42.97,   # ~550px en 1280px
+
+        # Botones
+        "button_sm_percent": 11.72, # ~150px en 1280px
+        "button_md_percent": 17.19, # ~220px en 1280px
+        "button_lg_percent": 23.44, # ~300px en 1280px
+
+        # Inputs
+        "input_md_percent": 35.16,  # ~450px en 1280px
+        "input_lg_percent": 42.97,  # ~550px en 1280px
+    }
+
+    # Dimensiones base para cálculos responsive
+    BASE_WIDTH = 1280
+    BASE_HEIGHT = 800
 
     # ========================================
     # 🎯 ÍCONOS - TAMAÑOS (Optimizado para tablet)
@@ -222,6 +248,111 @@ class BlessedTheme:
             color=shadow_config["color"],
             offset=shadow_config["offset"]
         )
+
+    @staticmethod
+    def get_responsive_width(page_width: float, element_type: str, size: str = "lg") -> float:
+        """
+        Calcular ancho responsive basado en el ancho de la página
+
+        Args:
+            page_width: Ancho actual de la página
+            element_type: Tipo de elemento ("card", "button", "input")
+            size: Tamaño del elemento ("sm", "md", "lg")
+
+        Returns:
+            Ancho calculado en píxeles
+        """
+        key = f"{element_type}_{size}_percent"
+        percent = BlessedTheme.RESPONSIVE_WIDTHS.get(key, 30)
+        return (page_width * percent) / 100
+
+    @staticmethod
+    def get_responsive_height(page_height: float, base_height: float) -> float:
+        """
+        Calcular altura responsive basada en la altura de la página
+
+        Args:
+            page_height: Altura actual de la página
+            base_height: Altura base del elemento (en 800px)
+
+        Returns:
+            Altura calculada en píxeles
+        """
+        # Escalar proporcionalmente basado en la altura base de 800px
+        scale_factor = page_height / BlessedTheme.BASE_HEIGHT
+        return base_height * scale_factor
+
+    @staticmethod
+    def get_responsive_font_size(page_width: float, base_size: int) -> int:
+        """
+        Calcular tamaño de fuente responsive
+
+        Args:
+            page_width: Ancho actual de la página
+            base_size: Tamaño base de la fuente (en 1280px)
+
+        Returns:
+            Tamaño de fuente calculado
+        """
+        # Escalar proporcionalmente basado en el ancho base de 1280px
+        scale_factor = page_width / BlessedTheme.BASE_WIDTH
+        # Limitar el factor de escala entre 0.75 y 1.5
+        scale_factor = max(0.75, min(1.5, scale_factor))
+        return int(base_size * scale_factor)
+
+    @staticmethod
+    def get_responsive_spacing(page_width: float, base_spacing: int) -> int:
+        """
+        Calcular espaciado responsive
+
+        Args:
+            page_width: Ancho actual de la página
+            base_spacing: Espaciado base (en 1280px)
+
+        Returns:
+            Espaciado calculado
+        """
+        scale_factor = page_width / BlessedTheme.BASE_WIDTH
+        # Limitar el factor de escala entre 0.8 y 1.2
+        scale_factor = max(0.8, min(1.2, scale_factor))
+        return int(base_spacing * scale_factor)
+
+    @staticmethod
+    def get_responsive_dimensions(page_width: float, page_height: float) -> dict:
+        """
+        Obtener todas las dimensiones responsive calculadas
+
+        Args:
+            page_width: Ancho actual de la página
+            page_height: Altura actual de la página
+
+        Returns:
+            Diccionario con todas las dimensiones responsive
+        """
+        return {
+            # Anchos de cards
+            "card_width_sm": BlessedTheme.get_responsive_width(page_width, "card", "sm"),
+            "card_width_md": BlessedTheme.get_responsive_width(page_width, "card", "md"),
+            "card_width_lg": BlessedTheme.get_responsive_width(page_width, "card", "lg"),
+
+            # Anchos de botones
+            "button_width_sm": BlessedTheme.get_responsive_width(page_width, "button", "sm"),
+            "button_width_md": BlessedTheme.get_responsive_width(page_width, "button", "md"),
+            "button_width_lg": BlessedTheme.get_responsive_width(page_width, "button", "lg"),
+
+            # Anchos de inputs
+            "input_width_md": BlessedTheme.get_responsive_width(page_width, "input", "md"),
+            "input_width_lg": BlessedTheme.get_responsive_width(page_width, "input", "lg"),
+
+            # Alturas
+            "button_height_sm": BlessedTheme.get_responsive_height(page_height, BlessedTheme.DIMENSIONS["button_height_sm"]),
+            "button_height_md": BlessedTheme.get_responsive_height(page_height, BlessedTheme.DIMENSIONS["button_height_md"]),
+            "button_height_lg": BlessedTheme.get_responsive_height(page_height, BlessedTheme.DIMENSIONS["button_height_lg"]),
+            "input_height": BlessedTheme.get_responsive_height(page_height, BlessedTheme.DIMENSIONS["input_height"]),
+            "card_height_sm": BlessedTheme.get_responsive_height(page_height, BlessedTheme.DIMENSIONS["card_height_sm"]),
+            "card_height_md": BlessedTheme.get_responsive_height(page_height, BlessedTheme.DIMENSIONS["card_height_md"]),
+            "card_height_lg": BlessedTheme.get_responsive_height(page_height, BlessedTheme.DIMENSIONS["card_height_lg"]),
+        }
 
 
 # ========================================

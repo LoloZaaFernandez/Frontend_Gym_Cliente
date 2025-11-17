@@ -33,13 +33,31 @@ class APIService:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.HTTPError as e:
+            # Intentar obtener detalles del error del backend
+            error_detail = None
+            try:
+                error_data = response.json()
+                error_detail = error_data.get('detail') or error_data.get('error') or error_data.get('message')
+                # Imprimir el error completo para debugging
+                print(f"ERROR del backend - Status {response.status_code}:")
+                print(f"Detalles: {error_data}")
+            except:
+                # Si no se puede parsear el JSON, intentar obtener el texto
+                error_detail = response.text[:200] if response.text else None
+                print(f"ERROR del backend - Status {response.status_code}:")
+                print(f"Respuesta: {response.text[:500]}")
+
             if response.status_code == 404:
                 raise ValueError("Recurso no encontrado")
             elif response.status_code == 400:
-                error_detail = response.json().get('detail', 'Error en la solicitud')
-                raise ValueError(f"Error: {error_detail}")
+                raise ValueError(f"Error: {error_detail or 'Error en la solicitud'}")
+            elif response.status_code == 500:
+                raise ValueError(f"Error interno del servidor: {error_detail or 'Revisa los logs del backend'}")
             else:
-                raise ValueError(f"Error HTTP {response.status_code}: {str(e)}")
+                raise ValueError(f"Error HTTP {response.status_code}: {error_detail or str(e)}")
+        except ValueError:
+            # Re-lanzar los ValueError que ya creamos
+            raise
         except Exception as e:
             raise ValueError(f"Error en la comunicación con el servidor: {str(e)}")
 

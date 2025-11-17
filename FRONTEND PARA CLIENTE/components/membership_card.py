@@ -89,16 +89,18 @@ def create_membership_card(
     membresia: dict,
     precio_actual: float,
     on_select_click=None,
-    is_selected: bool = False
+    is_selected: bool = False,
+    page_width: float = None
 ) -> ft.Container:
     """
-    Crear tarjeta de membresía MINIMAL para selección (registro)
+    Crear tarjeta de membresía MINIMAL para selección (registro) - RESPONSIVE
 
     Args:
         membresia: Datos de la membresía (debe incluir tipo_membresia o nombre)
         precio_actual: Precio actual
         on_select_click: Callback para seleccionar la membresía
         is_selected: Si está seleccionada actualmente
+        page_width: Ancho de la página para cálculo responsive
     """
     # Intentar obtener el tipo de la membresía desde diferentes campos posibles
     tipo = membresia.get('tipo_membresia') or membresia.get('tipo') or 'Mensual'
@@ -113,6 +115,53 @@ def create_membership_card(
     # Color para la tarjeta seleccionada (verde SUCCESS)
     select_color = Theme.SUCCESS if is_selected else Theme.PRIMARY
 
+    # Calcular dimensiones y tamaños responsive
+    card_width = 280
+    badge_size = 11
+    nombre_size = 20
+    precio_label_size = 22
+    precio_size = 56
+    duracion_icon_size = 16
+    duracion_text_size = 14
+    fecha_label_size = 12
+    fecha_value_size = 13
+    button_text_size = 14
+    button_icon_size = 20
+    button_height = 52
+    padding_top = 20
+    padding_bottom = 10
+    padding_h_badge = 14
+    padding_v_badge = 8
+    padding_section = 20
+    margin_bottom = 16
+    spacing_precio = 6
+
+    if page_width:
+        # Escalar proporcionalmente basado en el ancho de la página
+        scale = page_width / Theme.BASE_WIDTH
+        # Limitar el factor de escala
+        scale = max(0.75, min(1.25, scale))
+
+        card_width = int(280 * scale)
+        badge_size = int(11 * scale)
+        nombre_size = int(20 * scale)
+        precio_label_size = int(22 * scale)
+        precio_size = int(56 * scale)
+        duracion_icon_size = int(16 * scale)
+        duracion_text_size = int(14 * scale)
+        fecha_label_size = int(12 * scale)
+        fecha_value_size = int(13 * scale)
+        button_text_size = int(14 * scale)
+        button_icon_size = int(20 * scale)
+        button_height = int(52 * scale)
+        padding_top = int(20 * scale)
+        padding_bottom = int(10 * scale)
+        padding_h_badge = int(14 * scale)
+        padding_v_badge = int(8 * scale)
+        padding_section = int(20 * scale)
+        margin_bottom = int(16 * scale)
+        spacing_precio = int(6 * scale)
+
     # Construir contenido MINIMAL
     card_content = []
 
@@ -121,13 +170,13 @@ def create_membership_card(
         ft.Container(
             content=ft.Text(
                 info['badge'],
-                size=11,
+                size=badge_size,
                 weight=ft.FontWeight.BOLD,
                 color=select_color,
                 text_align=ft.TextAlign.CENTER
             ),
-            padding=ft.padding.symmetric(horizontal=14, vertical=8),
-            margin=ft.margin.only(top=20, bottom=10),
+            padding=ft.padding.symmetric(horizontal=padding_h_badge, vertical=padding_v_badge),
+            margin=ft.margin.only(top=padding_top, bottom=padding_bottom),
             alignment=ft.alignment.center,
         )
     )
@@ -139,7 +188,7 @@ def create_membership_card(
                 # Nombre de la membresía
                 ft.Text(
                     nombre.upper(),
-                    size=20,
+                    size=nombre_size,
                     weight=ft.FontWeight.W_900,
                     color=Theme.TEXT_PRIMARY,
                     text_align=ft.TextAlign.CENTER,
@@ -147,38 +196,38 @@ def create_membership_card(
                     overflow=ft.TextOverflow.ELLIPSIS
                 ),
 
-                ft.Container(height=16),
+                ft.Container(height=margin_bottom),
 
                 # Precio destacado - MÁS GRANDE
                 ft.Row([
                     ft.Text(
                         "S/",
-                        size=22,
+                        size=precio_label_size,
                         weight=ft.FontWeight.W_700,
                         color=select_color
                     ),
                     ft.Text(
                         f"{precio_actual:.2f}",
-                        size=56,
+                        size=precio_size,
                         weight=ft.FontWeight.W_900,
                         color=select_color
                     ),
-                ], alignment=ft.MainAxisAlignment.CENTER, spacing=6),
+                ], alignment=ft.MainAxisAlignment.CENTER, spacing=spacing_precio),
 
-                ft.Container(height=12),
+                ft.Container(height=int(margin_bottom * 0.75)),
 
                 # Duración - SIMPLE
                 ft.Row([
-                    ft.Icon(ft.Icons.SCHEDULE_ROUNDED, size=16, color=Theme.TEXT_SECONDARY),
+                    ft.Icon(ft.Icons.SCHEDULE_ROUNDED, size=duracion_icon_size, color=Theme.TEXT_SECONDARY),
                     ft.Text(
                         info['duracion'],
-                        size=14,
+                        size=duracion_text_size,
                         weight=ft.FontWeight.W_600,
                         color=Theme.TEXT_SECONDARY
                     ),
-                ], alignment=ft.MainAxisAlignment.CENTER, spacing=6),
+                ], alignment=ft.MainAxisAlignment.CENTER, spacing=spacing_precio),
             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=0),
-            padding=ft.padding.symmetric(vertical=20, horizontal=20)
+            padding=ft.padding.symmetric(vertical=padding_section, horizontal=padding_section)
         )
     )
 
@@ -188,24 +237,33 @@ def create_membership_card(
             content=ft.Row([
                 ft.Text(
                     "Válido hasta  ",
-                    size=12,
+                    size=fecha_label_size,
                     color=Theme.TEXT_SECONDARY,
                     weight=ft.FontWeight.W_500
                 ),
                 ft.Text(
                     fecha_vencimiento.strftime('%d/%m/%Y'),
-                    size=13,
+                    size=fecha_value_size,
                     color=Theme.TEXT_PRIMARY,
                     weight=ft.FontWeight.W_700
                 )
             ], alignment=ft.MainAxisAlignment.CENTER, spacing=0),
-            padding=ft.padding.symmetric(vertical=14),
+            padding=ft.padding.symmetric(vertical=int(14 * (page_width / Theme.BASE_WIDTH) if page_width else 14)),
             alignment=ft.alignment.center
         )
     )
 
     # Espaciador
-    card_content.append(ft.Container(height=10))
+    espaciador_height = int(10 * (page_width / Theme.BASE_WIDTH)) if page_width else 10
+    card_content.append(ft.Container(height=espaciador_height))
+
+    # Padding de botones
+    button_padding_h = int(32 * (page_width / Theme.BASE_WIDTH)) if page_width else 32
+    button_padding_v = int(16 * (page_width / Theme.BASE_WIDTH)) if page_width else 16
+    button_padding_outer = int(24 * (page_width / Theme.BASE_WIDTH)) if page_width else 24
+    button_padding_side = int(20 * (page_width / Theme.BASE_WIDTH)) if page_width else 20
+    button_spacing = int(10 * (page_width / Theme.BASE_WIDTH)) if page_width else 10
+    border_radius_btn = int(12 * (page_width / Theme.BASE_WIDTH)) if page_width else 12
 
     # 🎯 BOTÓN DE SELECCIÓN - MINIMAL CON BLANCO
     if is_selected:
@@ -214,16 +272,16 @@ def create_membership_card(
             ft.Container(
                 content=ft.Container(
                     content=ft.Row([
-                        ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, size=20, color="#0A0A0A"),
-                        ft.Text("SELECCIONADA", size=14, weight=ft.FontWeight.BOLD, color="#0A0A0A")
-                    ], alignment=ft.MainAxisAlignment.CENTER, spacing=10),
+                        ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, size=button_icon_size, color="#0A0A0A"),
+                        ft.Text("SELECCIONADA", size=button_text_size, weight=ft.FontWeight.BOLD, color="#0A0A0A")
+                    ], alignment=ft.MainAxisAlignment.CENTER, spacing=button_spacing),
                     bgcolor=Theme.SUCCESS,
-                    padding=ft.padding.symmetric(horizontal=32, vertical=16),
-                    border_radius=12,
-                    height=52,
+                    padding=ft.padding.symmetric(horizontal=button_padding_h, vertical=button_padding_v),
+                    border_radius=border_radius_btn,
+                    height=button_height,
                 ),
                 alignment=ft.alignment.center,
-                padding=ft.padding.only(bottom=24, left=20, right=20)
+                padding=ft.padding.only(bottom=button_padding_outer, left=button_padding_side, right=button_padding_side)
             )
         )
     else:
@@ -231,33 +289,41 @@ def create_membership_card(
         card_content.append(
             ft.Container(
                 content=ft.ElevatedButton(
-                    content=ft.Text("SELECCIONAR", size=14, weight=ft.FontWeight.BOLD, color="#0A0A0A"),
+                    content=ft.Text("SELECCIONAR", size=button_text_size, weight=ft.FontWeight.BOLD, color="#0A0A0A"),
                     style=ft.ButtonStyle(
                         bgcolor="#FFFFFF",  # Blanco para contraste
-                        padding=ft.padding.symmetric(horizontal=32, vertical=16),
-                        shape=ft.RoundedRectangleBorder(radius=12),
+                        padding=ft.padding.symmetric(horizontal=button_padding_h, vertical=button_padding_v),
+                        shape=ft.RoundedRectangleBorder(radius=border_radius_btn),
                         elevation=0,
                     ),
                     on_click=on_select_click,
-                    height=52,
+                    height=button_height,
                 ),
                 alignment=ft.alignment.center,
-                padding=ft.padding.only(bottom=24, left=20, right=20)
+                padding=ft.padding.only(bottom=button_padding_outer, left=button_padding_side, right=button_padding_side)
             )
         )
 
+    # Calcular valores responsive para el contenedor de la tarjeta
+    border_width = int(2 * (page_width / Theme.BASE_WIDTH)) if page_width else 2
+    border_radius_card = int(20 * (page_width / Theme.BASE_WIDTH)) if page_width else 20
+    shadow_blur = int(24 * (page_width / Theme.BASE_WIDTH)) if page_width else 24
+    shadow_offset_y = int(8 * (page_width / Theme.BASE_WIDTH)) if page_width else 8
+    shadow_blur_hover = int(30 * (page_width / Theme.BASE_WIDTH)) if page_width else 30
+    shadow_offset_y_hover = int(10 * (page_width / Theme.BASE_WIDTH)) if page_width else 10
+
     # Crear contenedor de tarjeta MINIMAL
     card = ft.Container(
-        width=280,
+        width=card_width,
         bgcolor="rgba(26, 26, 26, 0.8)",  # Más transparente para que no se pierda
-        border_radius=20,
+        border_radius=border_radius_card,
         padding=0,
-        border=ft.border.all(2, select_color if is_selected else "rgba(255, 255, 255, 0.15)"),
+        border=ft.border.all(border_width, select_color if is_selected else "rgba(255, 255, 255, 0.15)"),
         shadow=ft.BoxShadow(
             spread_radius=0,
-            blur_radius=24,
+            blur_radius=shadow_blur,
             color="rgba(0, 0, 0, 0.5)",
-            offset=ft.Offset(0, 8)
+            offset=ft.Offset(0, shadow_offset_y)
         ),
         animate=200,
         content=ft.Column(card_content, spacing=0, tight=True)
@@ -267,21 +333,21 @@ def create_membership_card(
     def on_hover(e):
         if e.data == "true":
             card.scale = ft.Scale(1.03)
-            card.border = ft.border.all(2, select_color)
+            card.border = ft.border.all(border_width, select_color)
             card.shadow = ft.BoxShadow(
                 spread_radius=0,
-                blur_radius=30,
+                blur_radius=shadow_blur_hover,
                 color=f"{select_color}60",
-                offset=ft.Offset(0, 10)
+                offset=ft.Offset(0, shadow_offset_y_hover)
             )
         else:
             card.scale = ft.Scale(1.0)
-            card.border = ft.border.all(2, select_color if is_selected else "rgba(255, 255, 255, 0.15)")
+            card.border = ft.border.all(border_width, select_color if is_selected else "rgba(255, 255, 255, 0.15)")
             card.shadow = ft.BoxShadow(
                 spread_radius=0,
-                blur_radius=24,
+                blur_radius=shadow_blur,
                 color="rgba(0, 0, 0, 0.5)",
-                offset=ft.Offset(0, 8)
+                offset=ft.Offset(0, shadow_offset_y)
             )
         card.update()
 

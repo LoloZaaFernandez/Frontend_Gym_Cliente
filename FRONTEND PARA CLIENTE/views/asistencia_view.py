@@ -20,7 +20,7 @@ from utils.datetime_utils import parse_datetime_from_api, format_date_display, f
 
 def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
     """
-    Mostrar vista de registro de asistencia
+    Mostrar vista de registro de asistencia - RESPONSIVE
 
     Args:
         page: Instancia de la página
@@ -28,10 +28,14 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
         on_back: Función para volver a la pantalla inicial
     """
 
-    # Controles
-    dni_input = create_dni_input()
+    # Obtener dimensiones de la página para cálculos responsive
+    page_width = page.window.width or page.width or Theme.BASE_WIDTH
+    page_height = page.window.height or page.height or Theme.BASE_HEIGHT
+
+    # Controles con dimensiones responsive
+    dni_input = create_dni_input(page_width=page_width, page_height=page_height)
     mensaje_container = ft.Container()
-    btn_registrar = create_success_button("Registrar Asistencia", None, icon=ft.Icons.CHECK_CIRCLE)
+    btn_registrar = create_success_button("Registrar Asistencia", None, icon=ft.Icons.CHECK_CIRCLE, page_width=page_width, page_height=page_height)
 
     # Estado para renovación de membresía
     cliente_actual = {}  # Guardar datos del cliente para renovación
@@ -44,7 +48,7 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
 
     def mostrar_mensaje(mensaje: str, tipo: str = "error"):
         """Mostrar mensaje (error, success, warning, info)"""
-        mensaje_container.content = create_alert_card(mensaje, tipo)
+        mensaje_container.content = create_alert_card(mensaje, tipo, page_width=page_width)
         try:
             mensaje_container.update()
         except:
@@ -311,7 +315,8 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
             controles_exito.append(
                 create_alert_card(
                     alerta_membresia["mensaje"],
-                    "warning"
+                    "warning",
+                    page_width=page_width
                 )
             )
 
@@ -324,7 +329,9 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
                     "Finalizar",
                     lambda e: volver_a_inicio(),
                     icon=ft.Icons.HOME_ROUNDED,
-                    bgcolor=Theme.SUCCESS
+                    bgcolor=Theme.SUCCESS,
+                    page_width=page_width,
+                    page_height=page_height
                 ),
                 width=280,
             )
@@ -514,18 +521,21 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
             create_alert_card(
                 "No puedes registrar asistencia con membresía vencida.\n"
                 "Por favor, renueva tu membresía para continuar.",
-                "error"
+                "error",
+                page_width=page_width
             ),
 
             ft.Container(height=Theme.SPACING["2xl"]),
 
             # Botones
             ft.Row([
-                create_back_button(lambda e: volver_a_inicio(), "Volver"),
+                create_back_button(lambda e: volver_a_inicio(), "Volver", page_width=page_width, page_height=page_height),
                 create_large_button(
                     "Renovar Membresía",
                     lambda e: iniciar_renovacion(),
                     icon=ft.Icons.AUTORENEW_ROUNDED,
+                    page_width=page_width,
+                    page_height=page_height,
                     bgcolor=Theme.SUCCESS
                 ),
             ], alignment=ft.MainAxisAlignment.CENTER, spacing=Theme.SPACING["xl"])
@@ -601,7 +611,8 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
             membresias_cards.append(
                 create_alert_card(
                     "No hay membresías disponibles. Por favor, contacta al administrador.",
-                    "error"
+                    "error",
+                    page_width=page_width
                 )
             )
         else:
@@ -611,6 +622,7 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
                     membresia=memb,
                     precio_actual=memb['precio'],
                     on_select_click=lambda e, mid=memb["id"]: seleccionar_membresia_renovacion(mid),
+                    page_width=page_width,
                     is_selected=seleccionada
                 )
                 membresias_cards.append(card)
@@ -693,8 +705,8 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
             mensaje_container,
 
             ft.Row([
-                create_back_button(lambda e: volver_a_inicio(), "Cancelar"),
-                create_success_button("Continuar", lambda e: ir_a_confirmacion_renovacion(), icon=ft.Icons.ARROW_FORWARD),
+                create_back_button(lambda e: volver_a_inicio(), "Cancelar", page_width=page_width, page_height=page_height),
+                create_success_button("Continuar", lambda e: ir_a_confirmacion_renovacion(), icon=ft.Icons.ARROW_FORWARD, page_width=page_width, page_height=page_height),
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, width=600)
 
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=Theme.SPACING["md"])
@@ -953,8 +965,8 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
         elementos_confirmacion.extend([
             mensaje_container,
             ft.Row([
-                create_back_button(lambda e: mostrar_seleccion_membresia(), "Volver"),
-                create_success_button("Confirmar Renovación", lambda e: confirmar_renovacion(), icon=ft.Icons.CHECK),
+                create_back_button(lambda e: mostrar_seleccion_membresia(), "Volver", page_width=page_width, page_height=page_height),
+                create_success_button("Confirmar Renovación", lambda e: confirmar_renovacion(), icon=ft.Icons.CHECK, page_width=page_width, page_height=page_height),
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, width=600)
         ])
 
@@ -1132,7 +1144,8 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
                 f"PAGO CON {metodo_pago.upper()} - CONFIRMACIÓN PENDIENTE\n\n"
                 "El personal del gimnasio ha sido notificado. "
                 "Por favor, espera la confirmación del pago por parte del administrador.",
-                "warning"
+                "warning",
+                page_width=page_width
             ),
 
             ft.Container(height=Theme.SPACING["xl"]),
@@ -1143,7 +1156,9 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
                     "Finalizar",
                     lambda e: volver_a_inicio(),
                     icon=ft.Icons.HOME_ROUNDED,
-                    bgcolor=Theme.PRIMARY
+                    bgcolor=Theme.PRIMARY,
+                    page_width=page_width,
+                    page_height=page_height
                 ),
                 width=280,
             )
@@ -1296,7 +1311,7 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
 
             # Botones
             ft.Row([
-                create_back_button(lambda e: on_back()),
+                create_back_button(lambda e: on_back(), page_width=page_width, page_height=page_height),
                 btn_registrar,
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, expand=True)
 

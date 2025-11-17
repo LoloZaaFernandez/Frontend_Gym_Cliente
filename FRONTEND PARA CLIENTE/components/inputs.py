@@ -21,10 +21,12 @@ def create_text_input(
     on_change=None,
     on_submit=None,
     width=None,
-    value=""
+    value="",
+    page_width=None,
+    page_height=None
 ):
     """
-    Crear campo de texto para tablet
+    Crear campo de texto para tablet - RESPONSIVE
 
     Args:
         label: Etiqueta del campo
@@ -35,12 +37,34 @@ def create_text_input(
         keyboard_type: Tipo de teclado (ft.KeyboardType.*)
         on_change: Función al cambiar el valor
         on_submit: Función al presionar Enter
-        width: Ancho personalizado
+        width: Ancho personalizado (sobreescribe cálculo responsive)
         value: Valor inicial
+        page_width: Ancho de la página para cálculo responsive
+        page_height: Altura de la página para cálculo responsive
 
     Returns:
         ft.TextField configurado
     """
+    # Calcular dimensiones responsive si se proporciona page_width/page_height
+    if page_width and not width:
+        width = Theme.get_responsive_width(page_width, "input", "lg")
+
+    input_height = Theme.DIMENSIONS["input_height"]
+    if page_height:
+        input_height = Theme.get_responsive_height(page_height, Theme.DIMENSIONS["input_height"])
+
+    # Calcular tamaños de fuente y espaciado responsive
+    text_size = Theme.FONT_SIZE["xl"]
+    label_size = Theme.FONT_SIZE["lg"]
+    h_padding = Theme.SPACING["xl"]
+    v_padding = Theme.SPACING["lg"]
+
+    if page_width:
+        text_size = Theme.get_responsive_font_size(page_width, Theme.FONT_SIZE["xl"])
+        label_size = Theme.get_responsive_font_size(page_width, Theme.FONT_SIZE["lg"])
+        h_padding = Theme.get_responsive_spacing(page_width, Theme.SPACING["xl"])
+        v_padding = Theme.get_responsive_spacing(page_width, Theme.SPACING["lg"])
+
     return ft.TextField(
         label=label,
         hint_text=hint_text,
@@ -52,11 +76,11 @@ def create_text_input(
         on_change=on_change,
         on_submit=on_submit,
         width=width or Theme.DIMENSIONS["input_width_lg"],
-        height=Theme.DIMENSIONS["input_height"],
+        height=input_height,
         value=value,
-        text_size=Theme.FONT_SIZE["xl"],
+        text_size=text_size,
         label_style=ft.TextStyle(
-            size=Theme.FONT_SIZE["lg"],
+            size=label_size,
             color=Theme.TEXT_SECONDARY
         ),
         border_color=Theme.BORDER_DEFAULT,
@@ -66,20 +90,22 @@ def create_text_input(
         filled=True,
         border_radius=Theme.RADIUS["lg"],
         content_padding=ft.padding.symmetric(
-            horizontal=Theme.SPACING["xl"],
-            vertical=Theme.SPACING["lg"]
+            horizontal=h_padding,
+            vertical=v_padding
         )
     )
 
 
-def create_dni_input(on_change=None, on_submit=None, value=""):
+def create_dni_input(on_change=None, on_submit=None, value="", page_width=None, page_height=None):
     """
-    Crear campo específico para DNI
+    Crear campo específico para DNI - RESPONSIVE
 
     Args:
         on_change: Función al cambiar el valor
         on_submit: Función al presionar Enter
         value: Valor inicial
+        page_width: Ancho de la página para cálculo responsive
+        page_height: Altura de la página para cálculo responsive
 
     Returns:
         TextField configurado para DNI (8 dígitos numéricos)
@@ -92,17 +118,21 @@ def create_dni_input(on_change=None, on_submit=None, value=""):
         keyboard_type=ft.KeyboardType.NUMBER,
         on_change=on_change,
         on_submit=on_submit,
-        value=value
+        value=value,
+        page_width=page_width,
+        page_height=page_height
     )
 
 
-def create_phone_input(on_change=None, value=""):
+def create_phone_input(on_change=None, value="", page_width=None, page_height=None):
     """
-    Crear campo específico para teléfono
+    Crear campo específico para teléfono - RESPONSIVE
 
     Args:
         on_change: Función al cambiar el valor
         value: Valor inicial
+        page_width: Ancho de la página para cálculo responsive
+        page_height: Altura de la página para cálculo responsive
 
     Returns:
         TextField configurado para teléfono (9 dígitos, solo números)
@@ -126,17 +156,21 @@ def create_phone_input(on_change=None, value=""):
         max_length=9,
         keyboard_type=ft.KeyboardType.NUMBER,
         on_change=validate_numbers,
-        value=value
+        value=value,
+        page_width=page_width,
+        page_height=page_height
     )
 
 
-def create_email_input(on_change=None, value=""):
+def create_email_input(on_change=None, value="", page_width=None, page_height=None):
     """
-    Crear campo específico para email
+    Crear campo específico para email - RESPONSIVE
 
     Args:
         on_change: Función al cambiar el valor
         value: Valor inicial
+        page_width: Ancho de la página para cálculo responsive
+        page_height: Altura de la página para cálculo responsive
 
     Returns:
         TextField configurado para email
@@ -147,5 +181,7 @@ def create_email_input(on_change=None, value=""):
         icon=ft.Icons.EMAIL,
         keyboard_type=ft.KeyboardType.EMAIL,
         on_change=on_change,
-        value=value
+        value=value,
+        page_width=page_width,
+        page_height=page_height
     )
