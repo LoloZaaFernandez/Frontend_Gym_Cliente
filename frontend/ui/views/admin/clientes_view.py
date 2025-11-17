@@ -364,6 +364,8 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
         nonlocal clientes_list, clientes_filtrados
         try:
             clientes_list = api.get_clientes()
+            # Ordenar por ID descendente para mostrar los más recientes primero
+            clientes_list.sort(key=lambda x: x.get('id', 0), reverse=True)
             clientes_filtrados = clientes_list.copy()
             current_page[0] = 0
         except Exception as e:
@@ -387,6 +389,8 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
                     search_term in c.get('apellidos', '').lower() or
                     search_term in c.get('correo', '').lower())
             ]
+            # Mantener el ordenamiento por ID descendente después del filtrado
+            clientes_filtrados.sort(key=lambda x: x.get('id', 0), reverse=True)
 
         current_page[0] = 0
         update_tabla()
@@ -756,10 +760,12 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
 
         if direccion == "prev" and current_page[0] > 0:
             current_page[0] -= 1
+            update_tabla()
             # Reconstruir toda la vista para actualizar correctamente los botones de paginación
             update_view()
         elif direccion == "next" and current_page[0] < total_pages - 1:
             current_page[0] += 1
+            update_tabla()
             # Reconstruir toda la vista para actualizar correctamente los botones de paginación
             update_view()
 

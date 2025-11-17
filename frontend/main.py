@@ -30,12 +30,14 @@ from ui.views.admin.productos_view import show_productos_view
 from ui.views.admin.alertas_productos_view import show_alertas_productos_view
 from ui.views.admin.reportes_view import show_reportes_view
 from ui.views.admin.finanzas_view import show_finanzas_view
+from ui.views.admin.ayuda_view import show_ayuda_view
 
 # Vistas de cliente
 from ui.views.client.client_dashboard import show_client_dashboard
 from ui.views.client.perfil_cliente_view import show_perfil_cliente_view
 from ui.views.client.membresias_view import show_membresias_view
 from ui.views.client.cliente_asistencias_view import show_cliente_asistencias_view
+from ui.views.client.ayuda_view import show_ayuda_cliente_view
 
 # Otras vistas
 from ui.views.simple_message import show_simple_message
@@ -431,6 +433,8 @@ def main(page: ft.Page):
                 show_reportes_view(page, auth_service, navigate_to_section, section_name)
             elif section_name == "Finanzas":
                 show_finanzas_view(page, auth_service, navigate_to_section, section_name)
+            elif section_name == "Soporte":
+                show_ayuda_view(page, auth_service, navigate_to_section, section_name)
             else:
                 show_simple_message(page, section_name, on_back=go_back)
 
@@ -450,6 +454,8 @@ def main(page: ft.Page):
                 show_membresias_view(page, auth_service, navigate_to_section, section_name)
             elif section_name == "Asistencias":
                 show_cliente_asistencias_view(page, auth_service, navigate_to_section, section_name)
+            elif section_name == "Ayuda":
+                show_ayuda_cliente_view(page, auth_service, navigate_to_section, section_name)
             else:
                 show_simple_message(page, section_name, on_back=go_back)
 

@@ -1,6 +1,6 @@
 """
-Vista de Finanzas - Gestión de Egresos y Reportes Financieros
-Incluye: Tab 1: Egresos | Tab 2: Reporte Financiero
+Vista de Finanzas - Gestión de Egresos y Categorías
+Incluye: Tab 1: Egresos | Tab 2: Categorías
 """
 
 import flet as ft
@@ -15,7 +15,7 @@ from ui.utils.datetime_utils import get_now_local
 
 
 def show_finanzas_view(page: ft.Page, auth_service, on_section_click, current_section):
-    """Vista de finanzas con tabs: Egresos y Reporte Financiero"""
+    """Vista de finanzas con tabs: Egresos y Categorías"""
     page.title = "BLESSED GYM - Finanzas"
     page.padding = 0
     page.spacing = 0
@@ -26,7 +26,7 @@ def show_finanzas_view(page: ft.Page, auth_service, on_section_click, current_se
 
     # Referencias para actualizar contenido
     content_ref = ft.Ref[ft.Container]()
-    selected_tab = [0]  # 0: Egresos, 1: Reporte Financiero
+    selected_tab = [0]  # 0: Egresos, 1: Categorías
 
     # ==========================================
     # TAB 1: GESTIÓN DE EGRESOS
@@ -41,8 +41,6 @@ def show_finanzas_view(page: ft.Page, auth_service, on_section_click, current_se
 
         # Referencias
         tabla_egresos_ref = ft.Ref[ft.Column]()
-        stats_total_ref = ft.Ref[ft.Text]()
-        stats_cantidad_ref = ft.Ref[ft.Text]()
 
         # Campos del formulario
         categoria_dropdown = ft.Dropdown(
@@ -170,32 +168,10 @@ def show_finanzas_view(page: ft.Page, auth_service, on_section_click, current_se
                 print(f"{'='*60}\n")
 
                 actualizar_tabla_egresos()
-                actualizar_stats()
 
             except Exception as e:
                 print(f"❌ Error al cargar egresos: {e}")
                 mostrar_error(page, f"Error al cargar egresos: {str(e)}")
-
-        def actualizar_stats():
-            """Actualizar estadísticas del período"""
-            total_monto = sum(e.get('monto', 0) for e in egresos_list)
-            cantidad = len(egresos_list)
-
-            if stats_total_ref.current:
-                stats_total_ref.current.value = f"S/ {total_monto:,.2f}"
-                try:
-                    if stats_total_ref.current.page:
-                        stats_total_ref.current.update()
-                except:
-                    pass
-
-            if stats_cantidad_ref.current:
-                stats_cantidad_ref.current.value = f"{cantidad} egreso(s)"
-                try:
-                    if stats_cantidad_ref.current.page:
-                        stats_cantidad_ref.current.update()
-                except:
-                    pass
 
         def actualizar_tabla_egresos():
             """Actualizar tabla de egresos"""
@@ -650,28 +626,6 @@ def show_finanzas_view(page: ft.Page, auth_service, on_section_click, current_se
                         border_radius=12
                     ),
                 ], spacing=15, expand=True),
-
-                # Fila inferior: Resumen del Período
-                ft.Container(
-                    content=ft.Row([
-                        create_stat_card(
-                            "Total Egresos",
-                            ft.Text("S/ 0.00", ref=stats_total_ref, size=24, weight=ft.FontWeight.BOLD, color=Theme.DANGER),
-                            ft.Icons.MONEY_OFF,
-                            Theme.DANGER
-                        ),
-                        ft.Container(width=20),
-                        create_stat_card(
-                            "Cantidad",
-                            ft.Text("0 egreso(s)", ref=stats_cantidad_ref, size=16),
-                            ft.Icons.RECEIPT_LONG,
-                            Theme.INFO
-                        ),
-                    ], spacing=15),
-                    padding=20,
-                    bgcolor=Theme.CARD_BG,
-                    border_radius=12
-                ),
             ], spacing=15, expand=True),
             padding=20,
             expand=True
@@ -692,158 +646,7 @@ def show_finanzas_view(page: ft.Page, auth_service, on_section_click, current_se
         return tab_content
 
     # ==========================================
-    # TAB 2: REPORTE FINANCIERO
-    # ==========================================
-    def create_tab_reporte_financiero():
-        """Crear tab de reporte financiero integrado"""
-
-        # Referencias
-        ganancia_neta_ref = ft.Ref[ft.Text]()
-        ingresos_ref = ft.Ref[ft.Text]()
-        egresos_ref = ft.Ref[ft.Text]()
-        margen_ref = ft.Ref[ft.Text]()
-
-        def cargar_reporte():
-            """Cargar reporte financiero del día"""
-            try:
-                fecha_hoy = get_now_local().strftime('%Y-%m-%d')
-
-                print(f"\n{'='*60}")
-                print(f"📊 CARGANDO REPORTE FINANCIERO")
-                print(f"Fecha: {fecha_hoy}")
-
-                reporte = api.get_reporte_financiero_diario(fecha=fecha_hoy)
-
-                ganancia_neta = reporte.get('ganancia_neta', 0)
-                total_ingresos = reporte.get('total_ingresos', 0)
-                total_egresos = reporte.get('total_egresos', 0)
-                margen_neto = reporte.get('margen_neto', 0)
-
-                print(f"Ganancia Neta: S/ {ganancia_neta:,.2f}")
-                print(f"Ingresos: S/ {total_ingresos:,.2f}")
-                print(f"Egresos: S/ {total_egresos:,.2f}")
-                print(f"Margen: {margen_neto:.2f}%")
-                print(f"{'='*60}\n")
-
-                # Actualizar UI
-                if ganancia_neta_ref.current:
-                    ganancia_neta_ref.current.value = f"S/ {ganancia_neta:,.2f}"
-                    ganancia_neta_ref.current.color = Theme.SUCCESS if ganancia_neta >= 0 else Theme.DANGER
-                    ganancia_neta_ref.current.update()
-
-                if ingresos_ref.current:
-                    ingresos_ref.current.value = f"S/ {total_ingresos:,.2f}"
-                    ingresos_ref.current.update()
-
-                if egresos_ref.current:
-                    egresos_ref.current.value = f"S/ {total_egresos:,.2f}"
-                    egresos_ref.current.update()
-
-                if margen_ref.current:
-                    margen_ref.current.value = f"{margen_neto:.1f}%"
-                    margen_ref.current.update()
-
-            except Exception as e:
-                print(f"❌ Error al cargar reporte financiero: {e}")
-                mostrar_error(page, f"Error al cargar reporte: {str(e)}")
-
-        # Cargar datos iniciales
-        cargar_reporte()
-
-        # Layout del tab
-        return ft.Container(
-            content=ft.Column([
-                ft.Text("Reporte Financiero del Día", size=24, weight=ft.FontWeight.BOLD),
-                ft.Divider(height=20),
-
-                # Card grande: Ganancia Neta
-                ft.Container(
-                    content=ft.Column([
-                        ft.Text("GANANCIA NETA", size=16, color=Theme.TEXT_SECONDARY),
-                        ft.Text("S/ 0.00", ref=ganancia_neta_ref, size=48, weight=ft.FontWeight.BOLD, color=Theme.SUCCESS),
-                        ft.Text("Ingresos - Egresos del día", size=12, color=Theme.TEXT_SECONDARY),
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
-                    padding=30,
-                    bgcolor=Theme.CARD_BG,
-                    border_radius=12,
-                    alignment=ft.alignment.center
-                ),
-
-                ft.Container(height=20),
-
-                # Cards de detalle
-                ft.Row([
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Row([
-                                ft.Icon(ft.Icons.TRENDING_UP, color=Theme.SUCCESS, size=40),
-                                ft.Column([
-                                    ft.Text("Total Ingresos", size=14, color=Theme.TEXT_SECONDARY),
-                                    ft.Text("S/ 0.00", ref=ingresos_ref, size=24, weight=ft.FontWeight.BOLD, color=Theme.SUCCESS),
-                                ], spacing=5)
-                            ], spacing=15)
-                        ]),
-                        padding=20,
-                        bgcolor=Theme.CARD_BG,
-                        border_radius=12,
-                        expand=True
-                    ),
-
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Row([
-                                ft.Icon(ft.Icons.TRENDING_DOWN, color=Theme.DANGER, size=40),
-                                ft.Column([
-                                    ft.Text("Total Egresos", size=14, color=Theme.TEXT_SECONDARY),
-                                    ft.Text("S/ 0.00", ref=egresos_ref, size=24, weight=ft.FontWeight.BOLD, color=Theme.DANGER),
-                                ], spacing=5)
-                            ], spacing=15)
-                        ]),
-                        padding=20,
-                        bgcolor=Theme.CARD_BG,
-                        border_radius=12,
-                        expand=True
-                    ),
-
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Row([
-                                ft.Icon(ft.Icons.PERCENT, color=Theme.INFO, size=40),
-                                ft.Column([
-                                    ft.Text("Margen Neto", size=14, color=Theme.TEXT_SECONDARY),
-                                    ft.Text("0%", ref=margen_ref, size=24, weight=ft.FontWeight.BOLD, color=Theme.INFO),
-                                ], spacing=5)
-                            ], spacing=15)
-                        ]),
-                        padding=20,
-                        bgcolor=Theme.CARD_BG,
-                        border_radius=12,
-                        expand=True
-                    ),
-                ], spacing=15),
-
-                ft.Container(height=20),
-
-                # Información adicional
-                ft.Container(
-                    content=ft.Column([
-                        ft.Text("ℹ️ Información", size=16, weight=ft.FontWeight.BOLD),
-                        ft.Divider(height=10),
-                        ft.Text("• Los ingresos incluyen membresías y venta de productos", size=12),
-                        ft.Text("• La ganancia neta = Ingresos - Egresos", size=12),
-                        ft.Text("• El margen neto = (Ganancia / Ingresos) × 100", size=12),
-                    ], spacing=8),
-                    padding=20,
-                    bgcolor=Theme.BACKGROUND_MEDIUM,
-                    border_radius=12
-                )
-            ], spacing=15, scroll=ft.ScrollMode.AUTO),
-            padding=20,
-            expand=True
-        )
-
-    # ==========================================
-    # TAB 3: CATEGORÍAS DE EGRESOS
+    # TAB 2: CATEGORÍAS DE EGRESOS
     # ==========================================
     def create_tab_categorias():
         """Tab para administrar categorías de egresos"""
@@ -1205,8 +1008,6 @@ def show_finanzas_view(page: ft.Page, auth_service, on_section_click, current_se
         if selected_tab[0] == 0:
             content_ref.current.content = create_tab_egresos()
         elif selected_tab[0] == 1:
-            content_ref.current.content = create_tab_reporte_financiero()
-        elif selected_tab[0] == 2:
             content_ref.current.content = create_tab_categorias()
 
         content_ref.current.update()
@@ -1219,10 +1020,6 @@ def show_finanzas_view(page: ft.Page, auth_service, on_section_click, current_se
             ft.Tab(
                 text="Egresos",
                 icon=ft.Icons.MONEY_OFF
-            ),
-            ft.Tab(
-                text="Reporte Financiero",
-                icon=ft.Icons.ASSESSMENT
             ),
             ft.Tab(
                 text="Categorías",
