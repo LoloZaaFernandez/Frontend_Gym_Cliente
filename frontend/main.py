@@ -77,6 +77,7 @@ def main(page: ft.Page):
         metodo_pago = datos.get("metodo_pago", "")
         dni = datos.get("dni", "")
         nombre_membresia = datos.get("nombre_membresia", "")
+        es_renovacion = datos.get("es_renovacion", False)
 
         def cerrar_ventana(e=None):
             print("🔴 Cerrando ventana")
@@ -145,13 +146,13 @@ def main(page: ft.Page):
                         ),
                         ft.Column([
                             ft.Text(
-                                "NUEVO REGISTRO PENDIENTE",
+                                "RENOVACIÓN PENDIENTE" if es_renovacion else "NUEVO REGISTRO PENDIENTE",
                                 size=20,
                                 weight=ft.FontWeight.BOLD,
                                 color=ft.Colors.WHITE,
                             ),
                             ft.Text(
-                                "Confirma si el cliente realizó el pago",
+                                "Confirma si el cliente realizó el pago de renovación" if es_renovacion else "Confirma si el cliente realizó el pago",
                                 size=13,
                                 color=ft.Colors.WHITE70,
                             ),
@@ -168,7 +169,7 @@ def main(page: ft.Page):
                         # Pregunta principal
                         ft.Container(
                             content=ft.Text(
-                                f"¿{nombre_completo} realizó el pago?",
+                                f"¿{nombre_completo} realizó el pago {'de renovación' if es_renovacion else ''}?",
                                 size=18,
                                 weight=ft.FontWeight.BOLD,
                                 color=Theme.TEXT_PRIMARY,
@@ -305,7 +306,7 @@ def main(page: ft.Page):
         tipo = message.get("tipo")
         print(f"📩 [MAIN] WebSocket mensaje: {tipo}")
 
-        if tipo == "registro_pendiente":
+        if tipo == "registro_pendiente" or tipo == "renovacion_pendiente":
             datos = message.get("datos", {})
             # Publicar en pubsub para mostrar en el hilo principal
             page.pubsub.send_all(message)
@@ -314,8 +315,10 @@ def main(page: ft.Page):
         """Handler del pubsub (ejecuta en hilo principal)"""
         tipo = message.get("tipo")
         print(f"🎯 [PUBSUB] Tipo: {tipo}")
-        if tipo == "registro_pendiente":
+        if tipo == "registro_pendiente" or tipo == "renovacion_pendiente":
             datos = message.get("datos", {})
+            es_renovacion = datos.get("es_renovacion", False)
+            print(f"🎯 [PUBSUB] {'Renovación' if es_renovacion else 'Registro'} pendiente detectado")
             print(f"🎯 [PUBSUB] Llamando a crear_ventana_confirmacion...")
             crear_ventana_confirmacion(datos)
 
