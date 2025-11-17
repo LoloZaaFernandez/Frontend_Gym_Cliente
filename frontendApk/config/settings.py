@@ -13,9 +13,10 @@ TEXT_SECONDARY = "#CCCCCC"     # Texto secundario gris claro
 
 # --- CONFIGURACIÓN DE LA APLICACIÓN ---
 APP_TITLE = "BLESSED GYM - Cliente"
-# Tamaño optimizado para tablets landscape (16:10 aspect ratio)
-APP_WIDTH = 1280  # Tablet landscape (mejor resolución)
-APP_HEIGHT = 800  # Tablet landscape (16:10 ratio)
+# Tamaño optimizado para Redmi Pad SE 8.7" (800x1340 nativos)
+# Configuración en modo horizontal (landscape) para mejor UX
+APP_WIDTH = 1340  # Redmi Pad SE 8.7" en horizontal
+APP_HEIGHT = 800  # Redmi Pad SE 8.7" en horizontal
 
 # --- BACKEND API ---
 API_BASE_URL = "http://localhost:8000"  # URL del backend

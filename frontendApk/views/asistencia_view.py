@@ -1346,7 +1346,11 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
                 expand=True,
             ),
             ft.Container(
-                content=contenido_principal,
+                content=ft.Column(
+                    [contenido_principal],
+                    scroll=ft.ScrollMode.AUTO,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                ),
                 padding=Theme.SPACING["4xl"],
                 expand=True,
                 alignment=ft.alignment.center
@@ -1354,7 +1358,11 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
         ], expand=True)
     else:
         main_container = ft.Container(
-            content=contenido_principal,
+            content=ft.Column(
+                [contenido_principal],
+                scroll=ft.ScrollMode.AUTO,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER
+            ),
             padding=Theme.SPACING["4xl"],
             bgcolor=Theme.BACKGROUND_DARK,
             expand=True,

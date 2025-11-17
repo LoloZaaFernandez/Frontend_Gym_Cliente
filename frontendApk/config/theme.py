@@ -158,66 +158,68 @@ class BlessedTheme:
     }
 
     # ========================================
-    # 📐 DIMENSIONES COMUNES (Tablet Landscape 1280x800)
+    # 📐 DIMENSIONES COMUNES (Redmi Pad SE 8.7" - 1340x800)
     # ========================================
-    # NOTA: Estas dimensiones son para referencia base (1280x800)
+    # NOTA: Estas dimensiones son para referencia base (1340x800)
+    # Optimizadas para pantalla de 8.7 pulgadas (~179 ppi)
     # Usar get_responsive_dimensions() para calcular dimensiones adaptativas
     DIMENSIONS = {
-        # Anchos
-        "card_width_sm": 250,
-        "card_width_md": 400,
-        "card_width_lg": 550,
-        "button_width_sm": 150,
-        "button_width_md": 220,
-        "button_width_lg": 300,
-        "input_width_md": 450,
-        "input_width_lg": 550,
+        # Anchos (ajustados para 1340px de ancho)
+        "card_width_sm": 260,     # ~19.4% del viewport
+        "card_width_md": 420,     # ~31.3% del viewport
+        "card_width_lg": 575,     # ~42.9% del viewport
+        "button_width_sm": 155,   # ~11.6% del viewport
+        "button_width_md": 230,   # ~17.2% del viewport
+        "button_width_lg": 315,   # ~23.5% del viewport
+        "input_width_md": 470,    # ~35.1% del viewport
+        "input_width_lg": 575,    # ~42.9% del viewport
 
-        # Alturas
-        "button_height_sm": 50,
-        "button_height_md": 65,
-        "button_height_lg": 80,
-        "input_height": 60,
-        "card_height_sm": 140,
-        "card_height_md": 200,
-        "card_height_lg": 280,
+        # Alturas (mantenidas para 800px - optimizadas para touch)
+        "button_height_sm": 55,   # Aumentado para mejor touch target
+        "button_height_md": 70,   # Aumentado para mejor touch target
+        "button_height_lg": 85,   # Aumentado para mejor touch target
+        "input_height": 65,       # Aumentado para mejor touch target
+        "card_height_sm": 145,
+        "card_height_md": 210,
+        "card_height_lg": 290,
     }
 
     # ========================================
     # 📐 DIMENSIONES RESPONSIVE (Porcentajes basados en viewport)
     # ========================================
     # Porcentajes del ancho de la página para diferentes elementos
+    # Optimizados para Redmi Pad SE 8.7" (1340x800)
     RESPONSIVE_WIDTHS = {
-        # Cards
-        "card_sm_percent": 19.5,    # ~250px en 1280px
-        "card_md_percent": 31.25,   # ~400px en 1280px
-        "card_lg_percent": 42.97,   # ~550px en 1280px
+        # Cards (porcentajes ajustados para 1340px)
+        "card_sm_percent": 19.4,    # ~260px en 1340px
+        "card_md_percent": 31.34,   # ~420px en 1340px
+        "card_lg_percent": 42.91,   # ~575px en 1340px
 
-        # Botones
-        "button_sm_percent": 11.72, # ~150px en 1280px
-        "button_md_percent": 17.19, # ~220px en 1280px
-        "button_lg_percent": 23.44, # ~300px en 1280px
+        # Botones (porcentajes ajustados para 1340px)
+        "button_sm_percent": 11.57, # ~155px en 1340px
+        "button_md_percent": 17.16, # ~230px en 1340px
+        "button_lg_percent": 23.51, # ~315px en 1340px
 
-        # Inputs
-        "input_md_percent": 35.16,  # ~450px en 1280px
-        "input_lg_percent": 42.97,  # ~550px en 1280px
+        # Inputs (porcentajes ajustados para 1340px)
+        "input_md_percent": 35.07,  # ~470px en 1340px
+        "input_lg_percent": 42.91,  # ~575px en 1340px
     }
 
-    # Dimensiones base para cálculos responsive
-    BASE_WIDTH = 1280
-    BASE_HEIGHT = 800
+    # Dimensiones base para cálculos responsive (Redmi Pad SE 8.7")
+    BASE_WIDTH = 1340   # Ancho nativo en horizontal
+    BASE_HEIGHT = 800   # Altura nativa en horizontal
 
     # ========================================
-    # 🎯 ÍCONOS - TAMAÑOS (Optimizado para tablet)
+    # 🎯 ÍCONOS - TAMAÑOS (Optimizado para Redmi Pad SE 8.7")
     # ========================================
     ICON_SIZE = {
-        "xs": 20,
-        "sm": 28,
-        "md": 36,     # Mayor tamaño para tablet
-        "lg": 48,
-        "xl": 64,
-        "2xl": 80,
-        "3xl": 96,
+        "xs": 22,     # Aumentado para mejor visibilidad
+        "sm": 30,     # Aumentado para mejor visibilidad
+        "md": 40,     # Optimizado para tablet de 8.7"
+        "lg": 52,     # Optimizado para tablet de 8.7"
+        "xl": 68,     # Optimizado para tablet de 8.7"
+        "2xl": 84,    # Optimizado para tablet de 8.7"
+        "3xl": 100,   # Optimizado para tablet de 8.7"
     }
 
     # ========================================
@@ -289,15 +291,15 @@ class BlessedTheme:
 
         Args:
             page_width: Ancho actual de la página
-            base_size: Tamaño base de la fuente (en 1280px)
+            base_size: Tamaño base de la fuente (en 1340px)
 
         Returns:
             Tamaño de fuente calculado
         """
-        # Escalar proporcionalmente basado en el ancho base de 1280px
+        # Escalar proporcionalmente basado en el ancho base de 1340px
         scale_factor = page_width / BlessedTheme.BASE_WIDTH
-        # Limitar el factor de escala entre 0.75 y 1.5
-        scale_factor = max(0.75, min(1.5, scale_factor))
+        # Limitar el factor de escala entre 0.7 y 1.6 para mejor adaptación
+        scale_factor = max(0.7, min(1.6, scale_factor))
         return int(base_size * scale_factor)
 
     @staticmethod
@@ -307,14 +309,14 @@ class BlessedTheme:
 
         Args:
             page_width: Ancho actual de la página
-            base_spacing: Espaciado base (en 1280px)
+            base_spacing: Espaciado base (en 1340px)
 
         Returns:
             Espaciado calculado
         """
         scale_factor = page_width / BlessedTheme.BASE_WIDTH
-        # Limitar el factor de escala entre 0.8 y 1.2
-        scale_factor = max(0.8, min(1.2, scale_factor))
+        # Limitar el factor de escala entre 0.75 y 1.3 para mejor adaptación
+        scale_factor = max(0.75, min(1.3, scale_factor))
         return int(base_spacing * scale_factor)
 
     @staticmethod
