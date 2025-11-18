@@ -629,18 +629,6 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
 
             cliente_info_content.controls.extend(info_controls)
             cliente_info_container.visible = True
-
-            if not tiene_membresia_activa:
-                mostrar_error(page, "Cliente sin membresia activa")
-            elif ya_registro_hoy:
-                # Usar zona horaria local del sistema para mostrar la fecha
-                fecha_hoy_formateada = get_now_local().strftime("%d/%m/%Y")
-
-                if hora_registro:
-                    mostrar_error(page, f"El cliente ya registro asistencia hoy ({fecha_hoy_formateada}) a las {hora_registro}")
-                else:
-                    mostrar_error(page, f"El cliente ya registro asistencia hoy ({fecha_hoy_formateada})")
-
             page.update()
 
         except Exception as e:

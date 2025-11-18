@@ -8,7 +8,7 @@ from config.theme import Theme
 
 def mostrar_mensaje(page: ft.Page, mensaje: str, error=False, duration=3000):
     """
-    Mostrar mensaje temporal (Banner)
+    Mostrar mensaje temporal usando overlay flotante
     Esta función reemplaza todas las instancias de mostrar_mensaje() en las vistas
 
     Args:
@@ -22,64 +22,91 @@ def mostrar_mensaje(page: ft.Page, mensaje: str, error=False, duration=3000):
         >>> mostrar_mensaje(page, "Error al guardar", error=True)
     """
     try:
-        print(f"DEBUG MESSAGES: Creando Banner con mensaje: '{mensaje}'")
+        print(f"DEBUG MESSAGES: Creando notificación flotante con mensaje: '{mensaje}'")
 
-        # Cerrar banner anterior si existe
-        if hasattr(page, 'banner') and page.banner:
-            page.banner.open = False
+        import threading
+        import time
 
-        # Crear nuevo banner
-        page.banner = ft.Banner(
-            bgcolor=Theme.ERROR if error else Theme.SUCCESS,
-            leading=ft.Icon(
-                ft.Icons.ERROR_OUTLINE if error else ft.Icons.CHECK_CIRCLE_OUTLINE,
-                color=ft.Colors.WHITE,
-                size=30
+        # Contenedor para la notificación
+        def cerrar_notificacion():
+            try:
+                for control in page.overlay[:]:
+                    if hasattr(control, '_es_notificacion_temporal'):
+                        control.visible = False
+                        page.overlay.remove(control)
+                page.update()
+                print("DEBUG MESSAGES: Notificación cerrada")
+            except Exception as e:
+                print(f"Error al cerrar notificación: {e}")
+
+        # Crear notificación flotante en la parte superior derecha
+        notificacion = ft.Container(
+            content=ft.Container(
+                content=ft.Row([
+                    ft.Icon(
+                        ft.Icons.ERROR_ROUNDED if error else ft.Icons.CHECK_CIRCLE_ROUNDED,
+                        color=ft.Colors.WHITE,
+                        size=28
+                    ),
+                    ft.Text(
+                        mensaje,
+                        color=ft.Colors.WHITE,
+                        weight=Theme.FONT_WEIGHT["bold"],
+                        size=16,
+                        max_lines=3,
+                    ),
+                    ft.IconButton(
+                        icon=ft.Icons.CLOSE,
+                        icon_color=ft.Colors.WHITE,
+                        icon_size=20,
+                        on_click=lambda _: cerrar_notificacion(),
+                        tooltip="Cerrar"
+                    )
+                ], spacing=12, alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                bgcolor=Theme.ERROR if error else Theme.SUCCESS,
+                padding=ft.padding.symmetric(horizontal=20, vertical=15),
+                border_radius=Theme.RADIUS["lg"],
+                shadow=ft.BoxShadow(
+                    spread_radius=0,
+                    blur_radius=20,
+                    color=ft.Colors.BLACK54,
+                    offset=ft.Offset(0, 4),
+                ),
+                border=ft.border.all(2, ft.Colors.WHITE24),
+                width=500,
             ),
-            content=ft.Text(
-                mensaje,
-                color=ft.Colors.WHITE,
-                weight=Theme.FONT_WEIGHT["bold"],
-                size=16
-            ),
-            actions=[
-                ft.TextButton("CERRAR", on_click=lambda _: cerrar_banner(page), style=ft.ButtonStyle(color=ft.Colors.WHITE))
-            ],
+            right=20,
+            top=20,
+            animate_opacity=300,
         )
 
-        print("DEBUG MESSAGES: Banner creado, abriendo...")
-        page.banner.open = True
+        # Marcar como notificación temporal
+        notificacion._es_notificacion_temporal = True
+
+        # Remover notificaciones anteriores
+        for control in page.overlay[:]:
+            if hasattr(control, '_es_notificacion_temporal'):
+                page.overlay.remove(control)
+
+        # Agregar al overlay
+        page.overlay.append(notificacion)
+        print("DEBUG MESSAGES: Notificación agregada al overlay")
+
+        page.update()
+        print("DEBUG MESSAGES: Page actualizado - Notificación VISIBLE en esquina superior derecha")
 
         # Auto-cerrar después de duration
-        import threading
         def auto_cerrar():
-            import time
             time.sleep(duration / 1000)
-            try:
-                if page.banner and page.banner.open:
-                    page.banner.open = False
-                    page.update()
-            except:
-                pass
+            cerrar_notificacion()
 
         threading.Thread(target=auto_cerrar, daemon=True).start()
 
-        print("DEBUG MESSAGES: Actualizando page...")
-        page.update()
-        print("DEBUG MESSAGES: Page actualizado exitosamente - Banner visible en la parte superior")
     except Exception as e:
         print(f"DEBUG MESSAGES: ERROR CRITICO en mostrar_mensaje: {e}")
         import traceback
         traceback.print_exc()
 
-def cerrar_banner(page: ft.Page):
-    """Cerrar el banner actual"""
-    try:
-        if page.banner:
-            page.banner.open = False
-            page.update()
-    except:
-        pass
 
 
 def mostrar_exito(page: ft.Page, mensaje: str, duration=3000):

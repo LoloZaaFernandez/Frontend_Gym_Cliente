@@ -31,9 +31,12 @@ def parse_datetime_from_api(datetime_str: str) -> datetime:
     """
     Parsear datetime desde la API
 
+    IMPORTANTE: El backend guarda fechas/horas en ZONA HORARIA LOCAL (Perú, UTC-5)
+    NO hacer conversión de timezone porque ya viene en hora local.
+
     El backend puede enviar:
-    - Fecha completa ISO: "2025-11-10T17:24:54.635364" (asumimos UTC)
-    - Solo hora: "17:24:54.635364" (asumimos que es UTC del día de hoy)
+    - Fecha completa ISO: "2025-11-10T17:24:54.635364" (ya es hora local)
+    - Solo hora: "17:24:54.635364" (hora local del día de hoy)
 
     Args:
         datetime_str: String con fecha/hora del backend
@@ -53,31 +56,28 @@ def parse_datetime_from_api(datetime_str: str) -> datetime:
             # Limpiar Z final si existe
             datetime_str_clean = datetime_str.replace('Z', '').replace('+00:00', '')
 
-            # Parsear como UTC
+            # Parsear el datetime
             dt = datetime.fromisoformat(datetime_str_clean)
 
-            # Si no tiene timezone info, asumimos que es UTC
+            # CAMBIO IMPORTANTE: El backend ya envía en hora local
+            # Solo agregar timezone info si no la tiene, pero SIN convertir
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.replace(tzinfo=local_tz)
 
-            # Convertir a hora local del sistema
-            dt_local = dt.astimezone(local_tz)
-            return dt_local
+            return dt
 
         # Si es solo hora (HH:MM:SS o HH:MM:SS.mmmmmm)
         elif ':' in datetime_str:
-            # Es solo hora, asumir que es UTC del día de hoy
+            # Es solo hora en zona local del día de hoy
             time_parts = datetime_str.split(':')
             hour = int(time_parts[0])
             minute = int(time_parts[1])
             second = int(float(time_parts[2])) if len(time_parts) > 2 else 0
 
-            # Crear datetime UTC de hoy con esta hora
-            now_utc = datetime.now(timezone.utc)
-            dt_utc = now_utc.replace(hour=hour, minute=minute, second=second, microsecond=0)
+            # Crear datetime LOCAL de hoy con esta hora
+            now_local = datetime.now(local_tz)
+            dt_local = now_local.replace(hour=hour, minute=minute, second=second, microsecond=0)
 
-            # Convertir a hora local del sistema
-            dt_local = dt_utc.astimezone(local_tz)
             return dt_local
 
         return None
