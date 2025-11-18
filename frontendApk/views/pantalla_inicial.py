@@ -13,13 +13,14 @@ from config.theme import Theme
 from config.settings import BACKGROUND_IMAGE
 
 
-def show_pantalla_inicial(page: ft.Page, on_navigate):
+def show_pantalla_inicial(page: ft.Page, on_navigate, on_config=None):
     """
     Mostrar pantalla inicial con opciones de Registrarse y Asistencia - RESPONSIVE
 
     Args:
         page: Instancia de la página de Flet
         on_navigate: Función para navegar (recibe "registro" o "asistencia")
+        on_config: Función para abrir configuración (opcional)
     """
     page.clean()
     page.bgcolor = Theme.BACKGROUND_DARK
@@ -65,6 +66,11 @@ def show_pantalla_inicial(page: ft.Page, on_navigate):
     def ir_a_asistencia(e):
         """Navegar a la pantalla de asistencia"""
         on_navigate("asistencia")
+
+    def ir_a_configuracion(e):
+        """Navegar a la configuración"""
+        if on_config:
+            on_config()
 
 
     # ==================== TARJETAS DE ACCIÓN MINIMAL & MODERNA ====================
@@ -342,9 +348,35 @@ def show_pantalla_inicial(page: ft.Page, on_navigate):
     # Verificar si existe el archivo de background
     background_existe = os.path.exists(BACKGROUND_IMAGE)
 
+    # Botón de configuración (tuerca) en esquina superior derecha
+    boton_config = None
+    if on_config:
+        boton_config = ft.Container(
+            content=ft.IconButton(
+                icon=ft.Icons.SETTINGS_ROUNDED,
+                icon_size=int(36 * scale),
+                icon_color=Theme.PRIMARY,
+                bgcolor=Theme.CARD_BG,
+                on_click=ir_a_configuracion,
+                tooltip="Configuración de API",
+                style=ft.ButtonStyle(
+                    shape=ft.CircleBorder(),
+                    padding=int(12 * scale),
+                ),
+            ),
+            shadow=ft.BoxShadow(
+                spread_radius=0,
+                blur_radius=15,
+                color="rgba(159, 255, 51, 0.3)",
+                offset=ft.Offset(0, 2),
+            ),
+            top=spacing_2xl,
+            right=spacing_2xl,
+        )
+
     if background_existe:
         # Layout con imagen de fondo usando Stack
-        main_container = ft.Stack([
+        stack_contents = [
             # Imagen de fondo
             ft.Image(
                 src=BACKGROUND_IMAGE,
@@ -367,20 +399,43 @@ def show_pantalla_inicial(page: ft.Page, on_navigate):
                 expand=True,
                 alignment=ft.alignment.center,
             ),
-        ],
+        ]
+
+        # Agregar botón de configuración si existe
+        if boton_config:
+            stack_contents.append(boton_config)
+
+        main_container = ft.Stack(
+            stack_contents,
             expand=True,
         )
     else:
         # Fallback sin imagen de fondo
-        main_container = ft.Container(
-            content=ft.Column(
-                [contenido_principal],
-                scroll=ft.ScrollMode.AUTO,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        stack_contents = [
+            # Fondo oscuro
+            ft.Container(
+                bgcolor=Theme.BACKGROUND_DARK,
+                expand=True,
             ),
+            # Contenido principal
+            ft.Container(
+                content=ft.Column(
+                    [contenido_principal],
+                    scroll=ft.ScrollMode.AUTO,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                expand=True,
+                alignment=ft.alignment.center,
+            ),
+        ]
+
+        # Agregar botón de configuración si existe
+        if boton_config:
+            stack_contents.append(boton_config)
+
+        main_container = ft.Stack(
+            stack_contents,
             expand=True,
-            bgcolor=Theme.BACKGROUND_DARK,
-            alignment=ft.alignment.center,
         )
 
     # Limpiar y mostrar

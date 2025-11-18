@@ -397,7 +397,7 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
 
             if not cliente:
                 print(f"DEBUG: Cliente no encontrado con DNI: {dni}")
-                mostrar_error(page, f"❌ No se encontró cliente con DNI {dni}")
+                mostrar_error(page, f"No se encontro cliente con DNI {dni}")
                 cliente_info_container.visible = False
                 cliente_actual[0] = None
                 page.update()
@@ -432,6 +432,8 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
                 print(f"DEBUG: Asistencia {idx}: cliente_id={asist.get('id_cliente')} (tipo: {type(asist.get('id_cliente'))}), nombre={asist.get('nombre_cliente')}, fecha={asist.get('fecha_asistencia')}, hora={asist.get('hora_ingreso')}")
 
             # Buscar si el cliente ya tiene asistencia en la lista de hoy
+            fecha_hoy_local = get_now_local().date()
+
             for idx, asist in enumerate(asistencias_list):
                 # Comparar IDs convirtiendo ambos a string para evitar problemas de tipo
                 id_asist = str(asist.get('id_cliente', ''))
@@ -440,9 +442,31 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
                 print(f"DEBUG: Comparando asistencia {idx}: '{id_asist}' == '{id_cliente}' ? {id_asist == id_cliente}")
 
                 if id_asist == id_cliente and id_asist != '':
-                    # Si está en la lista de "asistencias de hoy", entonces ya registró
+                    # IMPORTANTE: Verificar que la fecha de la asistencia sea REALMENTE de hoy
+                    fecha_asistencia_str = asist.get('fecha_asistencia', '')
+                    if fecha_asistencia_str:
+                        try:
+                            # Parsear la fecha de la asistencia
+                            fecha_asist_dt = parse_datetime_from_api(fecha_asistencia_str)
+                            if not fecha_asist_dt:
+                                fecha_asist_dt = datetime.fromisoformat(fecha_asistencia_str.replace('Z', '+00:00'))
+
+                            fecha_asist_solo_fecha = fecha_asist_dt.date()
+
+                            print(f"DEBUG: Comparando fechas: asistencia={fecha_asist_solo_fecha} vs hoy={fecha_hoy_local}")
+
+                            # Solo marcar como "ya registró" si la fecha es EXACTAMENTE hoy
+                            if fecha_asist_solo_fecha != fecha_hoy_local:
+                                print(f"DEBUG: Asistencia es de otro dia ({fecha_asist_solo_fecha}), ignorando...")
+                                continue
+                        except Exception as e:
+                            print(f"DEBUG: Error verificando fecha: {e}")
+                            # Si no podemos verificar la fecha, confiar en el backend
+                            continue
+
+                    # Si está en la lista de "asistencias de hoy" Y la fecha es hoy, entonces ya registró
                     ya_registro_hoy = True
-                    print(f"DEBUG: ¡Cliente YA registró asistencia hoy! (asistencia #{idx})")
+                    print(f"DEBUG: Cliente YA registro asistencia hoy! (asistencia #{idx})")
 
                     # Obtener hora de registro
                     hora_ingreso = asist.get('hora_ingreso')
@@ -533,7 +557,7 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
                             ft.Row([
                                 ft.Icon(ft.Icons.CANCEL, color=Theme.ERROR, size=24),
                                 ft.Text(
-                                    "⚠️ Cliente sin membresía",
+                                    "Cliente sin membresia",
                                     size=Theme.FONT_SIZE["sm"],
                                     color=Theme.ERROR,
                                     weight=Theme.FONT_WEIGHT["bold"]
@@ -556,7 +580,7 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
                 # Usar zona horaria local del sistema para mostrar la fecha
                 fecha_hoy_formateada = get_now_local().strftime("%d/%m/%Y")
 
-                mensaje_ya_registrado = f"✓ Asistencia ya registrada hoy ({fecha_hoy_formateada})"
+                mensaje_ya_registrado = f"Asistencia ya registrada hoy ({fecha_hoy_formateada})"
                 if hora_registro:
                     mensaje_ya_registrado += f" a las {hora_registro}"
 
@@ -607,15 +631,15 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
             cliente_info_container.visible = True
 
             if not tiene_membresia_activa:
-                mostrar_error(page, "⚠️ Cliente sin membresía")
+                mostrar_error(page, "Cliente sin membresia activa")
             elif ya_registro_hoy:
                 # Usar zona horaria local del sistema para mostrar la fecha
                 fecha_hoy_formateada = get_now_local().strftime("%d/%m/%Y")
 
                 if hora_registro:
-                    mostrar_error(page, f"⚠️ El cliente ya registró asistencia hoy ({fecha_hoy_formateada}) a las {hora_registro}")
+                    mostrar_error(page, f"El cliente ya registro asistencia hoy ({fecha_hoy_formateada}) a las {hora_registro}")
                 else:
-                    mostrar_error(page, f"⚠️ El cliente ya registró asistencia hoy ({fecha_hoy_formateada})")
+                    mostrar_error(page, f"El cliente ya registro asistencia hoy ({fecha_hoy_formateada})")
 
             page.update()
 
@@ -637,7 +661,7 @@ def show_asistencia_view(page: ft.Page, auth_service, on_section_click, current_
 
             # Mostrar mensaje de éxito con más detalle
             nombre_completo = f"{cliente_actual[0]['nombre']} {cliente_actual[0]['apellidos']}"
-            mostrar_exito(page, f"✓ Asistencia registrada para {nombre_completo}")
+            mostrar_exito(page, f"Asistencia registrada exitosamente para {nombre_completo}")
 
             # Limpiar formulario
             cancelar_busqueda()

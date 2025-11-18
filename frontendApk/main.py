@@ -17,11 +17,14 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
 
 from config.theme import Theme
-from config.settings import APP_TITLE, APP_WIDTH, APP_HEIGHT, API_BASE_URL, API_TIMEOUT
+from config.settings import APP_TITLE, APP_WIDTH, APP_HEIGHT
 from services.api_service import APIService
 from views.pantalla_inicial import show_pantalla_inicial
 from views.registro_view import show_registro_view
 from views.asistencia_view import show_asistencia_view
+from views.configuracion_view import show_configuracion_view
+from views.auth_config_view import show_auth_config_view
+from utils.config_manager import get_config_manager
 
 
 def main(page: ft.Page):
@@ -45,15 +48,24 @@ def main(page: ft.Page):
     # Prevenir que se cierre accidentalmente en modo fullscreen
     page.window.prevent_close = False
 
+    # ==================== CONFIGURACIÓN ====================
+
+    # Obtener gestor de configuración
+    config_manager = get_config_manager()
+
+    # Obtener URL de API desde configuración
+    api_base_url = config_manager.get_api_base_url()
+    api_timeout = config_manager.get_api_timeout()
+
     # ==================== SERVICIOS ====================
 
-    api_service = APIService(base_url=API_BASE_URL, timeout=API_TIMEOUT)
+    api_service = APIService(base_url=api_base_url, timeout=api_timeout)
 
     # ==================== NAVEGACIÓN ====================
 
     def navegar_a_pantalla_inicial():
         """Navegar a la pantalla inicial"""
-        show_pantalla_inicial(page, on_navigate=navegar_desde_inicial)
+        show_pantalla_inicial(page, on_navigate=navegar_desde_inicial, on_config=navegar_a_configuracion)
 
     def navegar_desde_inicial(destino: str):
         """
@@ -66,6 +78,27 @@ def main(page: ft.Page):
             show_registro_view(page, api_service, on_back=navegar_a_pantalla_inicial)
         elif destino == "asistencia":
             show_asistencia_view(page, api_service, on_back=navegar_a_pantalla_inicial)
+
+    def navegar_a_configuracion():
+        """Navegar a la pantalla de autenticación antes de configuración"""
+        show_auth_config_view(
+            page,
+            on_back=navegar_a_pantalla_inicial,
+            on_auth_success=abrir_configuracion
+        )
+
+    def abrir_configuracion():
+        """Abrir configuración después de autenticación exitosa"""
+        show_configuracion_view(page, on_back=navegar_a_pantalla_inicial, on_config_saved=on_configuracion_guardada)
+
+    def on_configuracion_guardada():
+        """Callback cuando se guarda la configuración"""
+        # Actualizar API service con nueva configuración
+        global api_service
+        api_base_url = config_manager.get_api_base_url()
+        api_timeout = config_manager.get_api_timeout()
+        api_service = APIService(base_url=api_base_url, timeout=api_timeout)
+        print(f"✓ Configuración actualizada: {api_base_url}")
 
     # ==================== INICIALIZACIÓN ====================
 
@@ -106,17 +139,25 @@ def main(page: ft.Page):
             ft.Container(height=Theme.SPACING["lg"]),
             create_alert_card(
                 f"No se pudo conectar con el servidor.\n\n"
-                f"URL del servidor: {API_BASE_URL}\n\n"
-                f"Por favor, verifica que el backend esté en ejecución.",
+                f"URL del servidor: {api_base_url}\n\n"
+                f"Por favor, verifica que el backend esté en ejecución o configura la IP correcta.",
                 "error"
             ),
             ft.Container(height=Theme.SPACING["2xl"]),
-            create_large_button(
-                "Reintentar",
-                lambda e: iniciar_aplicacion(),
-                icon=ft.Icons.REFRESH,
-                bgcolor=Theme.INFO
-            )
+            ft.Row([
+                create_large_button(
+                    "Reintentar",
+                    lambda e: iniciar_aplicacion(),
+                    icon=ft.Icons.REFRESH,
+                    bgcolor=Theme.INFO
+                ),
+                create_large_button(
+                    "Configurar",
+                    lambda e: navegar_a_configuracion(),
+                    icon=ft.Icons.SETTINGS_ROUNDED,
+                    bgcolor=Theme.PRIMARY
+                ),
+            ], alignment=ft.MainAxisAlignment.CENTER, spacing=Theme.SPACING["xl"], wrap=True)
         ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             alignment=ft.MainAxisAlignment.CENTER
@@ -149,10 +190,14 @@ def main(page: ft.Page):
 # ==================== PUNTO DE ENTRADA ====================
 
 if __name__ == "__main__":
+    # Cargar configuración
+    config_manager = get_config_manager()
+
     print("=" * 60)
     print("BLESSED GYM - Frontend Cliente (Tablet)")
     print("=" * 60)
-    print(f"Backend API: {API_BASE_URL}")
+    print(f"Backend API: {config_manager.get_api_base_url()}")
+    print(f"Timeout: {config_manager.get_api_timeout()}s")
     print("Iniciando aplicación...")
     print("=" * 60)
 

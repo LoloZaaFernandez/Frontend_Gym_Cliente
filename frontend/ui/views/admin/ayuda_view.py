@@ -214,15 +214,15 @@ def show_ayuda_view(page: ft.Page, auth_service, on_section_click, current_secti
                 # Grid de desarrolladores
                 ft.ResponsiveRow([
                     ft.Container(
-                        content=create_developer_card("Frans", "Desarrollador Full Stack", "950 000 513"),
+                        content=create_developer_card("Frans", "Desarrollador Full Stack", "952 375 791"),
                         col={"sm": 12, "md": 6, "lg": 4}
                     ),
                     ft.Container(
-                        content=create_developer_card("Crys", "Desarrolladora Backend", "955 668 607"),
+                        content=create_developer_card("Crys", "Desarrollador Full Stack", "950 000 513"),
                         col={"sm": 12, "md": 6, "lg": 4}
                     ),
                     ft.Container(
-                        content=create_developer_card("Lolo", "Desarrollador Frontend", "952 375 791"),
+                        content=create_developer_card("Lolo", "Desarrollador Full Stack", "955 668 607"),
                         col={"sm": 12, "md": 6, "lg": 4}
                     ),
                 ], spacing=Theme.SPACING["lg"], run_spacing=Theme.SPACING["lg"]),

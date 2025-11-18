@@ -232,62 +232,18 @@ class APIService:
     def get_asistencias_hoy(self) -> List[Dict[str, Any]]:
         """Obtener asistencias del día actual (zona horaria local del sistema)
 
-        IMPORTANTE: El backend guarda con fecha UTC, así que dependiendo de la hora local,
-        la fecha UTC puede ser diferente. Por eso buscamos asistencias que fueron creadas
-        en las últimas 24 horas y las filtramos por fecha local.
+        IMPORTANTE: El backend ahora guarda usando zona horaria LOCAL del sistema,
+        por lo que solo necesitamos buscar por la fecha de hoy en zona local.
         """
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime
 
-        # Zona horaria local del sistema
-        ahora_local = datetime.now().astimezone()
-        local_tz = ahora_local.tzinfo
-        fecha_hoy_local = ahora_local.strftime("%Y-%m-%d")
+        # Fecha de hoy en zona horaria local del sistema
+        fecha_hoy_local = datetime.now().strftime("%Y-%m-%d")
 
-        # Como el backend guarda en UTC, la fecha puede ser hoy o mañana en UTC
-        # dependiendo de la hora local
-        ahora_utc = datetime.now(timezone.utc)
-        fecha_hoy_utc = ahora_utc.strftime("%Y-%m-%d")
-        fecha_manana_utc = (ahora_utc + timedelta(days=1)).strftime("%Y-%m-%d")
+        # Buscar asistencias solo de hoy (el backend ya usa zona local)
+        asistencias = self.get_asistencias(fecha_inicio=fecha_hoy_local, fecha_fin=fecha_hoy_local)
 
-        # Obtener offset de la zona horaria local en horas
-        offset_seconds = ahora_local.utcoffset().total_seconds()
-        offset_hours = int(offset_seconds / 3600)
-
-        print(f"DEBUG API: Fecha HOY en zona local (UTC{offset_hours:+d}): {fecha_hoy_local}")
-        print(f"DEBUG API: Fecha en UTC: {fecha_hoy_utc}")
-        print(f"DEBUG API: Hora actual local: {ahora_local.strftime('%H:%M:%S')}")
-        print(f"DEBUG API: Hora actual UTC: {ahora_utc.strftime('%H:%M:%S')}")
-
-        # Obtener todas las asistencias de hoy (en todas las zonas horarias posibles)
-        todas_asistencias = []
-
-        # Buscar en fecha de hoy UTC
-        asist_hoy = self.get_asistencias(fecha_inicio=fecha_hoy_utc, fecha_fin=fecha_hoy_utc)
-        todas_asistencias.extend(asist_hoy)
-
-        # Si la fecha UTC es diferente a la fecha local, también buscar en esa fecha
-        if fecha_hoy_utc != fecha_hoy_local:
-            asist_ayer = self.get_asistencias(fecha_inicio=fecha_hoy_local, fecha_fin=fecha_hoy_local)
-            todas_asistencias.extend(asist_ayer)
-
-        # Si la zona horaria local tiene offset negativo y es tarde en el día,
-        # podríamos necesitar buscar también en el día siguiente UTC
-        # Esto ocurre con zonas UTC-X (como Perú UTC-5, etc.)
-        if offset_hours < 0 and ahora_local.hour >= (24 + offset_hours):
-            asist_manana = self.get_asistencias(fecha_inicio=fecha_manana_utc, fecha_fin=fecha_manana_utc)
-            todas_asistencias.extend(asist_manana)
-
-        # Eliminar duplicados por ID
-        asistencias_unicas = {}
-        for asist in todas_asistencias:
-            asist_id = asist.get('id')
-            if asist_id and asist_id not in asistencias_unicas:
-                asistencias_unicas[asist_id] = asist
-
-        resultado = list(asistencias_unicas.values())
-        print(f"DEBUG API: Se obtuvieron {len(resultado)} asistencias únicas del día de hoy")
-
-        return resultado
+        return asistencias
 
     def get_asistencias_mes(self) -> List[Dict[str, Any]]:
         """Obtener asistencias del mes actual"""

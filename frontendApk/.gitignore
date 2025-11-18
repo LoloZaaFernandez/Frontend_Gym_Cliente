@@ -39,3 +39,6 @@ Thumbs.db
 
 # Flet
 .flet/
+
+# Configuración local
+app_config.json

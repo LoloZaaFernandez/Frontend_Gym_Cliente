@@ -156,9 +156,7 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
         options=[
             ft.dropdown.Option("Efectivo"),
             ft.dropdown.Option("Yape"),
-            ft.dropdown.Option("Tarjeta"),
-            ft.dropdown.Option("Transferencia"),
-            ft.dropdown.Option("Plin"),
+           
         ],
         value="Efectivo",
         color=Theme.TEXT_PRIMARY,
