@@ -259,16 +259,16 @@ def show_configuracion_view(page: ft.Page, on_back, on_config_saved=None):
                 on_config_saved()
 
             # Mostrar confirmación visual
-            page.show_snack_bar(
-                ft.SnackBar(
-                    content=ft.Text(
-                        "Configuración guardada. Reinicia la aplicación para aplicar cambios.",
-                        color=ft.Colors.WHITE
-                    ),
-                    bgcolor=Theme.SUCCESS,
-                    duration=4000
-                )
+            page.snack_bar = ft.SnackBar(
+                content=ft.Text(
+                    "Configuración guardada. Reinicia la aplicación para aplicar cambios.",
+                    color=ft.Colors.WHITE
+                ),
+                bgcolor=Theme.SUCCESS,
+                duration=4000
             )
+            page.snack_bar.open = True
+            page.update()
         else:
             mostrar_mensaje("Error al guardar la configuración", "error")
 

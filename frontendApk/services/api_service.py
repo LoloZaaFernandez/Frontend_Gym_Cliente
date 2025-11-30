@@ -5,6 +5,8 @@ Maneja todas las comunicaciones con el backend para registro y asistencias
 
 from typing import Optional, Dict, Any, List
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from datetime import datetime, timedelta
 
 
@@ -13,7 +15,7 @@ class APIService:
 
     def __init__(self, base_url: str = "http://localhost:8000", timeout: int = 30):
         """
-        Inicializar el servicio API
+        Inicializar el servicio API con reconexión automática
 
         Args:
             base_url: URL base del backend
@@ -21,10 +23,36 @@ class APIService:
         """
         self.base_url = base_url
         self.timeout = timeout
+        self._create_session()
+
+    def _create_session(self):
+        """Crear o recrear la sesión HTTP con retry automático"""
         self.session = requests.Session()
+
+        # Configurar retry automático
+        retry_strategy = Retry(
+            total=3,  # 3 intentos
+            backoff_factor=1,  # Espera 1s, 2s, 4s entre reintentos
+            status_forcelist=[500, 502, 503, 504],  # Reintentar en estos errores
+            allowed_methods=["GET", "POST", "PUT", "DELETE"]  # Métodos para reintentar
+        )
+
+        # Configurar adapter HTTP con retry
+        adapter = HTTPAdapter(
+            max_retries=retry_strategy,
+            pool_connections=10,
+            pool_maxsize=20
+        )
+
+        # Montar el adapter para http y https
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+
+        # Headers comunes
         self.session.headers.update({
             'Content-Type': 'application/json',
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'Connection': 'keep-alive'  # Mantener conexión viva
         })
 
     def _handle_response(self, response: requests.Response) -> Any:
@@ -32,6 +60,15 @@ class APIService:
         try:
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.ConnectionError as e:
+            # Error de conexión - intentar recrear la sesión
+            print(f"ERROR: Pérdida de conexión con el backend. Recreando sesión...")
+            self._create_session()
+            raise ValueError("No se pudo conectar con el backend. Verifica que esté corriendo.")
+        except requests.exceptions.Timeout as e:
+            # Timeout - probablemente red lenta o backend ocupado
+            print(f"ERROR: Timeout al conectar con el backend")
+            raise ValueError("El backend tardó demasiado en responder. Intenta de nuevo.")
         except requests.exceptions.HTTPError as e:
             # Intentar obtener detalles del error del backend
             error_detail = None

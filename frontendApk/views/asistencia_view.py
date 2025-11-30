@@ -591,19 +591,25 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
         # Mostrar pantalla de selección de membresía
         mostrar_seleccion_membresia()
 
+    # Contenedor de referencia para la vista de selección de membresía
+    seleccion_membresia_container = ft.Container()
+
     def seleccionar_membresia_renovacion(membresia_id: int):
         """Seleccionar una membresía para renovación"""
         renovacion_data["id_membresia"] = membresia_id
-        mostrar_seleccion_membresia()  # Re-renderizar para mostrar selección
+        # Solo actualizar el contenedor sin refrescar toda la vista
+        seleccion_membresia_container.content = build_contenido_seleccion_membresia()
+        seleccion_membresia_container.update()
 
     def seleccionar_metodo_pago_renovacion(metodo: str):
         """Seleccionar método de pago para renovación"""
         renovacion_data["metodo_pago"] = metodo
-        mostrar_seleccion_membresia()  # Re-renderizar para mostrar selección
+        # Solo actualizar el contenedor sin refrescar toda la vista
+        seleccion_membresia_container.content = build_contenido_seleccion_membresia()
+        seleccion_membresia_container.update()
 
-    def mostrar_seleccion_membresia():
-        """Mostrar pantalla de selección de membresía y método de pago"""
-
+    def build_contenido_seleccion_membresia():
+        """Construir contenido de selección de membresía (sin layout completo)"""
         # Cards de membresías
         membresias_cards = []
 
@@ -665,7 +671,7 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
             )
             metodos_buttons.append(btn)
 
-        contenido_seleccion = ft.Column([
+        return ft.Column([
             ft.Text(
                 "Renovar Membresía",
                 size=Theme.FONT_SIZE["4xl"],
@@ -711,6 +717,11 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
 
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=Theme.SPACING["md"])
 
+    def mostrar_seleccion_membresia():
+        """Mostrar pantalla de selección de membresía y método de pago"""
+        # Inicializar el contenedor con el contenido
+        seleccion_membresia_container.content = build_contenido_seleccion_membresia()
+
         # Layout con background
         background_existe = os.path.exists(BACKGROUND_IMAGE)
 
@@ -725,7 +736,7 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
                 ft.Container(bgcolor=Theme.OVERLAY_DARK, expand=True),
                 ft.Container(
                     content=ft.Column(
-                        [contenido_seleccion],
+                        [seleccion_membresia_container],  # Usar el contenedor en lugar del contenido directo
                         scroll=ft.ScrollMode.AUTO,
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER
                     ),
@@ -737,7 +748,7 @@ def show_asistencia_view(page: ft.Page, api_service: APIService, on_back):
         else:
             main_container = ft.Container(
                 content=ft.Column(
-                    [contenido_seleccion],
+                    [seleccion_membresia_container],  # Usar el contenedor en lugar del contenido directo
                     scroll=ft.ScrollMode.AUTO,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER
                 ),

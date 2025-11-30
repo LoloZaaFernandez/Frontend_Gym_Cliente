@@ -62,6 +62,7 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
     # Referencias para filtros
     dropdown_categoria = ft.Ref[ft.Dropdown]()
     campo_busqueda = ft.Ref[ft.TextField]()
+    filtros_periodo_container = ft.Ref[ft.Row]()
 
     # ==========================================
     # FUNCIONES DE DATOS
@@ -946,6 +947,8 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
                 load_reporte()
                 # Recargar estadísticas rápidas
                 load_estadisticas_rapidas()
+                # Forzar actualización completa de la página
+                page.update()
                 print(f"✅ Productos, reportes y estadísticas recargados\n")
 
             except ValueError as ex:
@@ -1012,9 +1015,37 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
     # ==========================================
     # FUNCIONES DE REPORTE
     # ==========================================
+    def build_filtros_periodo():
+        """Construir botones de filtro de período"""
+        return ft.Row([
+            ft.ElevatedButton(
+                "Hoy",
+                bgcolor=Theme.PRIMARY if filtro_periodo[0] == "hoy" else Theme.CARD_BG,
+                color="white" if filtro_periodo[0] == "hoy" else Theme.TEXT_PRIMARY,
+                on_click=lambda _: cambiar_filtro_periodo("hoy")
+            ),
+            ft.ElevatedButton(
+                "Semana",
+                bgcolor=Theme.PRIMARY if filtro_periodo[0] == "semana" else Theme.CARD_BG,
+                color="white" if filtro_periodo[0] == "semana" else Theme.TEXT_PRIMARY,
+                on_click=lambda _: cambiar_filtro_periodo("semana")
+            ),
+            ft.ElevatedButton(
+                "Mes",
+                bgcolor=Theme.PRIMARY if filtro_periodo[0] == "mes" else Theme.CARD_BG,
+                color="white" if filtro_periodo[0] == "mes" else Theme.TEXT_PRIMARY,
+                on_click=lambda _: cambiar_filtro_periodo("mes")
+            ),
+        ], spacing=Theme.SPACING["sm"])
+
     def cambiar_filtro_periodo(periodo):
         """Cambiar filtro de período"""
         filtro_periodo[0] = periodo
+        # Actualizar botones de filtro
+        if filtros_periodo_container.current:
+            filtros_periodo_container.current.controls = build_filtros_periodo().controls
+            filtros_periodo_container.current.update()
+        # Recargar reporte
         load_reporte()
 
     # ==========================================
@@ -1118,29 +1149,20 @@ def show_pos_view(page: ft.Page, auth_service, on_section_click, current_section
                     ft.Icon(ft.Icons.ANALYTICS, size=Theme.ICON_SIZE["md"], color=Theme.PRIMARY),
                     ft.Text("Reporte de Ventas", size=Theme.FONT_SIZE["lg"],
                            weight=Theme.FONT_WEIGHT["bold"], color=Theme.TEXT_PRIMARY, expand=True),
+                    create_icon_button(
+                        ft.Icons.REFRESH,
+                        lambda _: (load_reporte(), load_estadisticas_rapidas()),
+                        tooltip="Actualizar datos",
+                        color=Theme.PRIMARY
+                    ),
                 ], spacing=Theme.SPACING["sm"]),
                 ft.Divider(height=1, color=Theme.BORDER_DEFAULT),
                 # Filtros
-                ft.Row([
-                    ft.ElevatedButton(
-                        "Hoy",
-                        bgcolor=Theme.PRIMARY if filtro_periodo[0] == "hoy" else Theme.CARD_BG,
-                        color="white" if filtro_periodo[0] == "hoy" else Theme.TEXT_PRIMARY,
-                        on_click=lambda _: cambiar_filtro_periodo("hoy")
-                    ),
-                    ft.ElevatedButton(
-                        "Semana",
-                        bgcolor=Theme.PRIMARY if filtro_periodo[0] == "semana" else Theme.CARD_BG,
-                        color="white" if filtro_periodo[0] == "semana" else Theme.TEXT_PRIMARY,
-                        on_click=lambda _: cambiar_filtro_periodo("semana")
-                    ),
-                    ft.ElevatedButton(
-                        "Mes",
-                        bgcolor=Theme.PRIMARY if filtro_periodo[0] == "mes" else Theme.CARD_BG,
-                        color="white" if filtro_periodo[0] == "mes" else Theme.TEXT_PRIMARY,
-                        on_click=lambda _: cambiar_filtro_periodo("mes")
-                    ),
-                ], spacing=Theme.SPACING["sm"]),
+                ft.Row(
+                    ref=filtros_periodo_container,
+                    controls=build_filtros_periodo().controls,
+                    spacing=Theme.SPACING["sm"]
+                ),
                 # Stats
                 ft.Row([
                     ft.Container(ref=stat_total_ventas, expand=True, bgcolor=f"{Theme.PRIMARY}15",

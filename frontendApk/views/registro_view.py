@@ -217,12 +217,16 @@ def show_registro_view(page: ft.Page, api_service: APIService, on_back):
     def seleccionar_membresia(membresia_id: int):
         """Seleccionar una membresía"""
         form_data["id_membresia"] = membresia_id
-        actualizar_vista()
+        # Solo actualizar el contenedor del paso 2 sin refrescar toda la vista
+        paso2_container.content = build_paso2()
+        paso2_container.update()
 
     def seleccionar_metodo_pago(metodo: str):
         """Seleccionar método de pago"""
         form_data["metodo_pago"] = metodo
-        actualizar_vista()
+        # Solo actualizar el contenedor del paso 2 sin refrescar toda la vista
+        paso2_container.content = build_paso2()
+        paso2_container.update()
 
     def ir_a_paso3(e):
         """Avanzar al Paso 3: Confirmación"""

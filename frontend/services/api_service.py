@@ -4,6 +4,8 @@ Maneja todas las peticiones HTTP al servidor FastAPI
 """
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from typing import Optional, Dict, Any, List
 from config.settings import API_BASE_URL, API_TIMEOUT
 
@@ -14,10 +16,36 @@ class APIService:
     def __init__(self):
         self.base_url = API_BASE_URL
         self.timeout = API_TIMEOUT
+        self._create_session()
+
+    def _create_session(self):
+        """Crear o recrear la sesión HTTP con retry automático"""
         self.session = requests.Session()
+
+        # Configurar retry automático
+        retry_strategy = Retry(
+            total=3,  # 3 intentos
+            backoff_factor=1,  # Espera 1s, 2s, 4s entre reintentos
+            status_forcelist=[500, 502, 503, 504],  # Reintentar en estos errores
+            allowed_methods=["GET", "POST", "PUT", "DELETE"]  # Métodos para reintentar
+        )
+
+        # Configurar adapter HTTP con retry
+        adapter = HTTPAdapter(
+            max_retries=retry_strategy,
+            pool_connections=10,
+            pool_maxsize=20
+        )
+
+        # Montar el adapter para http y https
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+
+        # Headers comunes
         self.session.headers.update({
             'Content-Type': 'application/json',
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'Connection': 'keep-alive'  # Mantener conexión viva
         })
 
     def _handle_response(self, response: requests.Response) -> Dict[str, Any]:
@@ -27,6 +55,15 @@ class APIService:
             if response.status_code == 204:
                 return {"success": True}
             return response.json()
+        except requests.exceptions.ConnectionError as e:
+            # Error de conexión - intentar recrear la sesión
+            print(f"ERROR: Pérdida de conexión con el backend. Recreando sesión...")
+            self._create_session()
+            raise ValueError("No se pudo conectar con el backend. Verifica que esté corriendo.")
+        except requests.exceptions.Timeout as e:
+            # Timeout - probablemente red lenta o backend ocupado
+            print(f"ERROR: Timeout al conectar con el backend")
+            raise ValueError("El backend tardó demasiado en responder. Intenta de nuevo.")
         except requests.exceptions.HTTPError as e:
             if response.status_code == 404:
                 raise ValueError("Recurso no encontrado")

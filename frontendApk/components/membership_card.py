@@ -72,7 +72,8 @@ def calculate_expiration_date(tipo: str) -> datetime:
     fecha = datetime.now()
 
     if tipo == "Dia":
-        return fecha + timedelta(days=1)
+        # Vence al final del mismo día (23:59:59)
+        return fecha.replace(hour=23, minute=59, second=59, microsecond=999999)
     elif tipo == "Mensual":
         return fecha + timedelta(days=30)
     elif tipo == "Trimestral":
