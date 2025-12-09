@@ -5,6 +5,7 @@ Incluye: Búsqueda por DNI, Tabla completa, Paginación
 
 import flet as ft
 import re
+import unicodedata
 from config.theme import Theme
 from services.api_service import APIService
 from ui.layouts import create_base_layout
@@ -32,6 +33,10 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
     clientes_filtrados = []
     selected_cliente = None
     edit_mode = [False]
+
+    # Caché para datos extendidos (evitar múltiples llamadas API)
+    cache_membresia_info = {}
+    cache_ultimo_checkin = {}
 
     # Paginación
     items_per_page = 10
@@ -168,14 +173,15 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
 
     # Campo de búsqueda
     search_field = ft.TextField(
-        hint_text="Buscar cliente...",
+        hint_text="Buscar por DNI, nombre, apellidos o correo...",
         border_color=Theme.BORDER_DEFAULT,
         focused_border_color=Theme.PRIMARY,
         bgcolor=Theme.CARD_BG,
         color=Theme.TEXT_PRIMARY,
         prefix_icon=ft.Icons.SEARCH,
         expand=True,
-        on_change=lambda e: filtrar_clientes(e.control.value)
+        on_change=lambda e: filtrar_clientes(e.control.value),
+        on_submit=lambda e: filtrar_clientes(e.control.value)  # Manejar Enter sin congelar
     )
 
     # Contenedor de la tabla
@@ -188,7 +194,11 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
     # FUNCIONES DE DATOS EXTENDIDOS
     # ==========================================
     def get_cliente_membresia_info(cliente_id):
-        """Obtener información de membresía del cliente"""
+        """Obtener información de membresía del cliente con caché"""
+        # Verificar si ya está en caché
+        if cliente_id in cache_membresia_info:
+            return cache_membresia_info[cliente_id]
+
         try:
             # Obtener información del cliente
             cliente_info = api.get_cliente_por_id(cliente_id)
@@ -251,42 +261,58 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
                         estatus = "Inactivo"
                         estatus_tipo = "error"
 
-                    return {
+                    resultado = {
                         'plan': plan_nombre,
                         'estatus': estatus,
                         'estatus_tipo': estatus_tipo,
                         'fecha_vencimiento': fecha_membresia,
                         'dias_restantes': dias_restantes
                     }
+                    # Guardar en caché
+                    cache_membresia_info[cliente_id] = resultado
+                    return resultado
                 except Exception as e:
                     print(f"Error procesando fecha de membresía: {e}")
 
             # Sin membresía
-            return {
+            resultado = {
                 'plan': 'Sin membresía',
                 'estatus': 'Inactivo',
                 'estatus_tipo': 'error',
                 'fecha_vencimiento': None,
                 'dias_restantes': None
             }
+            # Guardar en caché
+            cache_membresia_info[cliente_id] = resultado
+            return resultado
 
         except Exception as e:
             print(f"Error obteniendo membresía del cliente {cliente_id}: {e}")
-            return {
+            resultado = {
                 'plan': 'Sin membresía',
                 'estatus': 'Inactivo',
                 'estatus_tipo': 'error',
                 'fecha_vencimiento': None,
                 'dias_restantes': None
             }
+            # Guardar en caché
+            cache_membresia_info[cliente_id] = resultado
+            return resultado
 
     def get_ultimo_checkin(cliente_id):
-        """Obtener último check-in del cliente con conversión correcta de timezone"""
+        """Obtener último check-in del cliente con conversión correcta de timezone y caché"""
+        # Verificar si ya está en caché
+        if cliente_id in cache_ultimo_checkin:
+            return cache_ultimo_checkin[cliente_id]
+
+        resultado = "Sin registro"  # Valor por defecto
+
         try:
             asistencias = api.get_asistencias_cliente(cliente_id)
 
             if not asistencias or len(asistencias) == 0:
-                return "Sin registro"
+                cache_ultimo_checkin[cliente_id] = resultado
+                return resultado
 
             # Ordenar por fecha_asistencia (campo que realmente existe en la API)
             asistencias_ordenadas = sorted(
@@ -316,7 +342,9 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
                     # Parsear con conversión de UTC a hora local
                     dt = parse_datetime_from_api(datetime_str)
                     if dt:
-                        return format_datetime_display(dt)
+                        resultado = format_datetime_display(dt)
+                        cache_ultimo_checkin[cliente_id] = resultado
+                        return resultado
                 except Exception as e:
                     print(f"Error parseando último check-in: {e}")
 
@@ -325,18 +353,24 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
                 try:
                     dt = parse_datetime_from_api(fecha_asistencia)
                     if dt:
-                        return dt.strftime('%d/%m/%Y')
+                        resultado = dt.strftime('%d/%m/%Y')
+                        cache_ultimo_checkin[cliente_id] = resultado
+                        return resultado
                 except:
                     pass
-                return fecha_asistencia
+                resultado = fecha_asistencia
+                cache_ultimo_checkin[cliente_id] = resultado
+                return resultado
 
-            return "Sin registro"
+            cache_ultimo_checkin[cliente_id] = resultado
+            return resultado
 
         except Exception as e:
             print(f"Error obteniendo asistencias del cliente {cliente_id}: {e}")
             import traceback
             traceback.print_exc()
-            return "Sin registro"
+            cache_ultimo_checkin[cliente_id] = resultado
+            return resultado
 
     # ==========================================
     # FUNCIONES CRUD
@@ -358,6 +392,21 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
             print(f"Error al cargar membresías: {e}")
             membresia_dropdown.options = []
 
+    def normalizar_texto(texto):
+        """
+        Normaliza texto removiendo tildes y convirtiéndolo a minúsculas.
+        Ejemplo: 'José' -> 'jose', 'María' -> 'maria'
+        """
+        if not texto:
+            return ""
+        # Convertir a minúsculas
+        texto = texto.lower()
+        # Normalizar caracteres Unicode (NFD descompone caracteres con tildes)
+        texto_nfd = unicodedata.normalize('NFD', texto)
+        # Filtrar los caracteres de marca (tildes, diéresis, etc.)
+        texto_sin_tildes = ''.join(char for char in texto_nfd if unicodedata.category(char) != 'Mn')
+        return texto_sin_tildes
+
     def load_clientes():
         nonlocal clientes_list, clientes_filtrados
         try:
@@ -366,6 +415,10 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
             clientes_list.sort(key=lambda x: x.get('id', 0), reverse=True)
             clientes_filtrados = clientes_list.copy()
             current_page[0] = 0
+
+            # Limpiar caché al recargar clientes para obtener datos actualizados
+            cache_membresia_info.clear()
+            cache_ultimo_checkin.clear()
         except Exception as e:
             print(f"Error al cargar clientes: {e}")
             clientes_list = []
@@ -374,18 +427,31 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
         update_tabla()
 
     def filtrar_clientes(search_term):
+        """
+        Filtra clientes por DNI, nombre, apellidos o correo.
+        La búsqueda es insensible a mayúsculas/minúsculas y tildes.
+        """
         nonlocal clientes_filtrados
-        search_term = search_term.lower().strip()
+        search_term = search_term.strip()
 
         if not search_term:
             clientes_filtrados = clientes_list.copy()
         else:
+            # Normalizar el término de búsqueda (quitar tildes y convertir a minúsculas)
+            search_normalizado = normalizar_texto(search_term)
+
             clientes_filtrados = [
                 c for c in clientes_list
-                if (search_term in c.get('dni', '').lower() or
-                    search_term in c.get('nombre', '').lower() or
-                    search_term in c.get('apellidos', '').lower() or
-                    search_term in c.get('correo', '').lower())
+                if (
+                    # Búsqueda por DNI (sin normalización, solo números)
+                    search_term in c.get('dni', '') or
+                    # Búsqueda por nombre (con normalización)
+                    search_normalizado in normalizar_texto(c.get('nombre', '')) or
+                    # Búsqueda por apellidos (con normalización)
+                    search_normalizado in normalizar_texto(c.get('apellidos', '')) or
+                    # Búsqueda por correo (con normalización)
+                    search_normalizado in normalizar_texto(c.get('correo', ''))
+                )
             ]
             # Mantener el ordenamiento por ID descendente después del filtrado
             clientes_filtrados.sort(key=lambda x: x.get('id', 0), reverse=True)
@@ -406,7 +472,18 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
                 )
             )
             pagination_text.value = "Mostrando 0 de 0 clientes"
-            page.update()
+            # Actualizar solo si los controles están en la página
+            try:
+                if tabla_container.page is not None:
+                    tabla_container.update()
+                if pagination_text.page is not None:
+                    pagination_text.update()
+            except Exception as e:
+                # Si falla, intentar actualizar la página completa
+                try:
+                    page.update()
+                except:
+                    pass
             return
 
         # Calcular paginación
@@ -558,7 +635,18 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
         # Actualizar texto de paginación
         pagination_text.value = f"Mostrando {start_idx + 1} a {end_idx} de {total_items} clientes"
 
-        page.update()
+        # Actualizar solo si los controles están en la página
+        try:
+            if tabla_container.page is not None:
+                tabla_container.update()
+            if pagination_text.page is not None:
+                pagination_text.update()
+        except Exception as e:
+            # Si falla, intentar actualizar la página completa
+            try:
+                page.update()
+            except:
+                pass
 
     def clear_form():
         nonlocal selected_cliente
