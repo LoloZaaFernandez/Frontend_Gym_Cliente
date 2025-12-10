@@ -182,16 +182,28 @@ class APIService:
             return None
 
     def get_cliente_por_dni(self, dni: str) -> Optional[Dict[str, Any]]:
-        """Obtener cliente por DNI (buscar en la lista)"""
-        clientes = self.get_clientes(estado="Activo")
-        for cliente in clientes:
-            if cliente['dni'] == dni:
-                return cliente
-        return None
+        """Obtener cliente por DNI usando endpoint directo"""
+        url = f"{self.base_url}/api/clientes/dni/{dni}"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al obtener cliente por DNI: {e}")
+            return None
 
     def get_cliente_by_dni(self, dni: str) -> Optional[Dict[str, Any]]:
         """Alias de get_cliente_por_dni para compatibilidad"""
         return self.get_cliente_por_dni(dni)
+
+    def buscar_clientes_por_nombre(self, nombre: str) -> List[Dict[str, Any]]:
+        """Buscar clientes por nombre o apellidos"""
+        url = f"{self.base_url}/api/clientes/nombre/{nombre}"
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+            return self._handle_response(response)
+        except Exception as e:
+            print(f"Error al buscar clientes por nombre: {e}")
+            return []
 
     def crear_cliente(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Crear nuevo cliente"""

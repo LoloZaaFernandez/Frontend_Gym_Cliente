@@ -429,32 +429,27 @@ def show_clientes_view(page: ft.Page, auth_service, on_section_click, current_se
     def filtrar_clientes(search_term):
         """
         Filtra clientes por DNI, nombre, apellidos o correo.
-        La búsqueda es insensible a mayúsculas/minúsculas y tildes.
+        Usa los endpoints de búsqueda del backend para optimizar la consulta.
         """
         nonlocal clientes_filtrados
         search_term = search_term.strip()
 
         if not search_term:
+            # Si no hay búsqueda, mostrar todos los clientes
             clientes_filtrados = clientes_list.copy()
         else:
-            # Normalizar el término de búsqueda (quitar tildes y convertir a minúsculas)
-            search_normalizado = normalizar_texto(search_term)
+            # Determinar si es búsqueda por DNI (solo dígitos) o por nombre (contiene letras)
+            if search_term.isdigit():
+                # Búsqueda por DNI usando el endpoint específico
+                cliente = api.get_cliente_por_dni(search_term)
+                clientes_filtrados = [cliente] if cliente else []
+            else:
+                # Búsqueda por nombre usando el endpoint específico
+                clientes_filtrados = api.buscar_clientes_por_nombre(search_term)
 
-            clientes_filtrados = [
-                c for c in clientes_list
-                if (
-                    # Búsqueda por DNI (sin normalización, solo números)
-                    search_term in c.get('dni', '') or
-                    # Búsqueda por nombre (con normalización)
-                    search_normalizado in normalizar_texto(c.get('nombre', '')) or
-                    # Búsqueda por apellidos (con normalización)
-                    search_normalizado in normalizar_texto(c.get('apellidos', '')) or
-                    # Búsqueda por correo (con normalización)
-                    search_normalizado in normalizar_texto(c.get('correo', ''))
-                )
-            ]
             # Mantener el ordenamiento por ID descendente después del filtrado
-            clientes_filtrados.sort(key=lambda x: x.get('id', 0), reverse=True)
+            if clientes_filtrados:
+                clientes_filtrados.sort(key=lambda x: x.get('id', 0), reverse=True)
 
         current_page[0] = 0
         update_tabla()
